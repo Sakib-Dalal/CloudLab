@@ -1,0 +1,221 @@
+<!-- 
+  CloudLab CLI
+  Author: Sakib Dalal
+  GitHub: https://github.com/Sakib-Dalal
+  
+  This is a CLI-only tool. There is no web dashboard.
+  
+  Use the terminal:
+  
+    cloudlab init         # Configure CloudLab
+    cloudlab install all  # Install components
+    cloudlab start all    # Start services
+    cloudlab status       # View status and URLs
+    cloudlab help         # Show all commands
+  
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudLab CLI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .container {
+      text-align: center;
+      max-width: 700px;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      padding: 50px;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .logo {
+      font-size: 5em;
+      margin-bottom: 10px;
+      text-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+    }
+    
+    h1 {
+      font-size: 2.5em;
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+    
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 15px;
+      font-size: 1.1em;
+    }
+    
+    .author {
+      display: inline-block;
+      background: rgba(124, 58, 237, 0.2);
+      padding: 8px 20px;
+      border-radius: 50px;
+      margin-bottom: 30px;
+      font-size: 0.9em;
+    }
+    
+    .author a {
+      color: #a78bfa;
+      text-decoration: none;
+    }
+    
+    .author a:hover {
+      text-decoration: underline;
+    }
+    
+    .notice {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 30px;
+    }
+    
+    .notice h2 {
+      color: #fbbf24;
+      font-size: 1.1em;
+      margin-bottom: 8px;
+    }
+    
+    .notice p {
+      color: #fcd34d;
+      font-size: 0.95em;
+    }
+    
+    pre {
+      background: #0d1117;
+      padding: 25px;
+      border-radius: 16px;
+      text-align: left;
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.9em;
+      line-height: 1.8;
+    }
+    
+    .cmd {
+      color: #7ee787;
+    }
+    
+    .comment {
+      color: #8b949e;
+    }
+    
+    .prompt {
+      color: #f97583;
+    }
+    
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 15px;
+      margin-top: 30px;
+    }
+    
+    .feature {
+      background: rgba(255,255,255,0.05);
+      padding: 15px;
+      border-radius: 12px;
+      font-size: 0.85em;
+    }
+    
+    .feature-icon {
+      font-size: 1.5em;
+      margin-bottom: 5px;
+    }
+    
+    .github-link {
+      display: inline-block;
+      margin-top: 30px;
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      color: white;
+      padding: 12px 30px;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .github-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">☁️</div>
+    <h1>CloudLab CLI</h1>
+    <p class="subtitle">Self-Hosted Web Editor</p>
+    <p class="author">👤 Author: <a href="https://github.com/Sakib-Dalal" target="_blank">Sakib Dalal</a></p>
+    
+    <div class="notice">
+      <h2>⚡ Terminal-Based Tool</h2>
+      <p>This is a CLI application. Use the terminal commands below.</p>
+    </div>
+    
+    <pre><code><span class="comment"># Initialize and configure</span>
+<span class="prompt">$</span> <span class="cmd">cloudlab init</span>
+
+<span class="comment"># Install all components</span>
+<span class="prompt">$</span> <span class="cmd">cloudlab install all</span>
+
+<span class="comment"># Start all services</span>
+<span class="prompt">$</span> <span class="cmd">cloudlab start all</span>
+
+<span class="comment"># View status & tunnel URLs</span>
+<span class="prompt">$</span> <span class="cmd">cloudlab status</span>
+
+<span class="comment"># Get help</span>
+<span class="prompt">$</span> <span class="cmd">cloudlab help</span></code></pre>
+    
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🐍</div>
+        <div>Jupyter Lab</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">💻</div>
+        <div>VS Code</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌐</div>
+        <div>Tunnels</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📧</div>
+        <div>Email</div>
+      </div>
+    </div>
+    
+    <a href="https://github.com/Sakib-Dalal" class="github-link" target="_blank">
+      View on GitHub →
+    </a>
+  </div>
+</body>
+</html>
