@@ -1,221 +1,1342 @@
-<!-- 
-  CloudLab CLI
-  Author: Sakib Dalal
-  GitHub: https://github.com/Sakib-Dalal
-  
-  This is a CLI-only tool. There is no web dashboard.
-  
-  Use the terminal:
-  
-    cloudlab init         # Configure CloudLab
-    cloudlab install all  # Install components
-    cloudlab start all    # Start services
-    cloudlab status       # View status and URLs
-    cloudlab help         # Show all commands
-  
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CloudLab CLI</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: white;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    
-    .container {
-      text-align: center;
-      max-width: 700px;
-      background: rgba(255,255,255,0.05);
-      backdrop-filter: blur(10px);
-      padding: 50px;
-      border-radius: 24px;
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-    
-    .logo {
-      font-size: 5em;
-      margin-bottom: 10px;
-      text-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
-    }
-    
-    h1 {
-      font-size: 2.5em;
-      background: linear-gradient(135deg, #7c3aed, #06b6d4);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 10px;
-    }
-    
-    .subtitle {
-      color: #94a3b8;
-      margin-bottom: 15px;
-      font-size: 1.1em;
-    }
-    
-    .author {
-      display: inline-block;
-      background: rgba(124, 58, 237, 0.2);
-      padding: 8px 20px;
-      border-radius: 50px;
-      margin-bottom: 30px;
-      font-size: 0.9em;
-    }
-    
-    .author a {
-      color: #a78bfa;
-      text-decoration: none;
-    }
-    
-    .author a:hover {
-      text-decoration: underline;
-    }
-    
-    .notice {
-      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      padding: 20px;
-      border-radius: 16px;
-      margin-bottom: 30px;
-    }
-    
-    .notice h2 {
-      color: #fbbf24;
-      font-size: 1.1em;
-      margin-bottom: 8px;
-    }
-    
-    .notice p {
-      color: #fcd34d;
-      font-size: 0.95em;
-    }
-    
-    pre {
-      background: #0d1117;
-      padding: 25px;
-      border-radius: 16px;
-      text-align: left;
-      overflow-x: auto;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    code {
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-      font-size: 0.9em;
-      line-height: 1.8;
-    }
-    
-    .cmd {
-      color: #7ee787;
-    }
-    
-    .comment {
-      color: #8b949e;
-    }
-    
-    .prompt {
-      color: #f97583;
-    }
-    
-    .features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 15px;
-      margin-top: 30px;
-    }
-    
-    .feature {
-      background: rgba(255,255,255,0.05);
-      padding: 15px;
-      border-radius: 12px;
-      font-size: 0.85em;
-    }
-    
-    .feature-icon {
-      font-size: 1.5em;
-      margin-bottom: 5px;
-    }
-    
-    .github-link {
-      display: inline-block;
-      margin-top: 30px;
-      background: linear-gradient(135deg, #7c3aed, #6d28d9);
-      color: white;
-      padding: 12px 30px;
-      border-radius: 50px;
-      text-decoration: none;
-      font-weight: 500;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    
-    .github-link:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudLab CLI - Self-hosted Web Development Environment</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary: #7c3aed;
+            --primary-dark: #5b21b6;
+            --secondary: #06b6d4;
+            --accent: #f59e0b;
+        }
+
+        * {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        code, pre, .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #7c3aed 0%, #06b6d4 50%, #7c3aed 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradient-shift 3s ease infinite;
+        }
+
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 100% center; }
+        }
+
+        .hero-gradient {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 25%, #1e1b4b 50%, #0f172a 100%);
+        }
+
+        .card-gradient {
+            background: linear-gradient(145deg, rgba(124, 58, 237, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+        }
+
+        .code-block {
+            background: #0f172a;
+            border: 1px solid #334155;
+            position: relative;
+        }
+
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .copy-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .copy-btn.copied {
+            color: #10b981;
+        }
+
+        .nav-link {
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #7c3aed, #06b6d4);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 100%;
+        }
+
+        .feature-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px -15px rgba(124, 58, 237, 0.3);
+        }
+
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .accordion-content.open {
+            max-height: 2000px;
+        }
+
+        .floating-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.3;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        .ascii-logo {
+            font-size: clamp(0.4rem, 1.2vw, 0.75rem);
+            line-height: 1.2;
+            letter-spacing: -0.05em;
+        }
+
+        @media (max-width: 640px) {
+            .ascii-logo {
+                font-size: 0.35rem;
+            }
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .command-table th,
+        .command-table td {
+            white-space: nowrap;
+        }
+
+        @media (max-width: 768px) {
+            .command-table {
+                font-size: 0.875rem;
+            }
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .scroll-indicator {
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+    </style>
 </head>
-<body>
-  <div class="container">
-    <div class="logo">☁️</div>
-    <h1>CloudLab CLI</h1>
-    <p class="subtitle">Self-Hosted Web Editor</p>
-    <p class="author">👤 Author: <a href="https://github.com/Sakib-Dalal" target="_blank">Sakib Dalal</a></p>
-    
-    <div class="notice">
-      <h2>⚡ Terminal-Based Tool</h2>
-      <p>This is a CLI application. Use the terminal commands below.</p>
-    </div>
-    
-    <pre><code><span class="comment"># Initialize and configure</span>
-<span class="prompt">$</span> <span class="cmd">cloudlab init</span>
+<body class="bg-slate-950 text-white">
+    <!-- Navigation -->
+    <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-lg border-b border-slate-800 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="#" class="flex items-center gap-2">
+                    <span class="text-2xl">☁️</span>
+                    <span class="font-bold text-xl gradient-text">CloudLab</span>
+                </a>
+                
+                <!-- Desktop Nav -->
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#features" class="nav-link text-slate-300 hover:text-white transition-colors">Features</a>
+                    <a href="#installation" class="nav-link text-slate-300 hover:text-white transition-colors">Installation</a>
+                    <a href="#commands" class="nav-link text-slate-300 hover:text-white transition-colors">Commands</a>
+                    <a href="#configuration" class="nav-link text-slate-300 hover:text-white transition-colors">Config</a>
+                    <a href="#deployment" class="nav-link text-slate-300 hover:text-white transition-colors">Deployment</a>
+                    <a href="https://github.com/Sakib-Dalal/cloudlab" target="_blank" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fab fa-github"></i>
+                        <span>GitHub</span>
+                    </a>
+                </div>
 
-<span class="comment"># Install all components</span>
-<span class="prompt">$</span> <span class="cmd">cloudlab install all</span>
+                <!-- Mobile Menu Button -->
+                <button id="mobileMenuBtn" class="md:hidden text-slate-300 hover:text-white">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
 
-<span class="comment"># Start all services</span>
-<span class="prompt">$</span> <span class="cmd">cloudlab start all</span>
+        <!-- Mobile Menu -->
+        <div id="mobileMenu" class="hidden md:hidden bg-slate-900 border-b border-slate-800">
+            <div class="px-4 py-4 space-y-3">
+                <a href="#features" class="block text-slate-300 hover:text-white py-2">Features</a>
+                <a href="#installation" class="block text-slate-300 hover:text-white py-2">Installation</a>
+                <a href="#commands" class="block text-slate-300 hover:text-white py-2">Commands</a>
+                <a href="#configuration" class="block text-slate-300 hover:text-white py-2">Configuration</a>
+                <a href="#deployment" class="block text-slate-300 hover:text-white py-2">Deployment</a>
+                <a href="https://github.com/Sakib-Dalal/cloudlab" target="_blank" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg transition-colors w-fit">
+                    <i class="fab fa-github"></i>
+                    <span>GitHub</span>
+                </a>
+            </div>
+        </div>
+    </nav>
 
-<span class="comment"># View status & tunnel URLs</span>
-<span class="prompt">$</span> <span class="cmd">cloudlab status</span>
+    <!-- Hero Section -->
+    <section class="hero-gradient min-h-screen flex items-center justify-center relative overflow-hidden pt-16">
+        <!-- Floating Orbs -->
+        <div class="floating-orb w-96 h-96 bg-violet-600 top-20 -left-48" style="animation-delay: 0s;"></div>
+        <div class="floating-orb w-80 h-80 bg-cyan-500 bottom-20 -right-40" style="animation-delay: 2s;"></div>
+        <div class="floating-orb w-64 h-64 bg-purple-600 top-1/2 left-1/2 -translate-x-1/2" style="animation-delay: 4s;"></div>
 
-<span class="comment"># Get help</span>
-<span class="prompt">$</span> <span class="cmd">cloudlab help</span></code></pre>
-    
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🐍</div>
-        <div>Jupyter Lab</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">💻</div>
-        <div>VS Code</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">🌐</div>
-        <div>Tunnels</div>
-      </div>
-      <div class="feature">
-        <div class="feature-icon">📧</div>
-        <div>Email</div>
-      </div>
-    </div>
-    
-    <a href="https://github.com/Sakib-Dalal" class="github-link" target="_blank">
-      View on GitHub →
-    </a>
-  </div>
+        <div class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+            <!-- ASCII Logo -->
+            <pre class="ascii-logo text-cyan-400 font-bold mb-6 inline-block text-left">
+   _____ _                 _ _           _     
+  / ____| |               | | |         | |    
+ | |    | | ___  _   _  __| | |     __ _| |__  
+ | |    | |/ _ \| | | |/ _` | |    / _` | '_ \ 
+ | |____| | (_) | |_| | (_| | |___| (_| | |_) |
+  \_____|_|\___/ \__,_|\__,_|______\__,_|_.__/ 
+            </pre>
+
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6">
+                <span class="gradient-text">Self-hosted Web Development</span>
+                <br>
+                <span class="text-white">Environment</span>
+            </h1>
+
+            <p class="text-xl sm:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto">
+                Turn any computer, laptop, or cloud instance into a remote development environment accessible from anywhere with 
+                <span class="text-cyan-400 font-semibold">Jupyter Lab</span>, 
+                <span class="text-blue-400 font-semibold">VS Code Server</span>, and 
+                <span class="text-orange-400 font-semibold">Cloudflare Tunnels</span>
+            </p>
+
+            <!-- Badges -->
+            <div class="flex flex-wrap justify-center gap-3 mb-10">
+                <span class="px-4 py-2 bg-violet-900/50 rounded-full text-violet-300 border border-violet-700 text-sm font-medium">
+                    <i class="fas fa-user mr-2"></i>By Sakib Dalal
+                </span>
+                <span class="px-4 py-2 bg-cyan-900/50 rounded-full text-cyan-300 border border-cyan-700 text-sm font-medium">
+                    <i class="fab fa-golang mr-2"></i>Go 1.21+
+                </span>
+                <span class="px-4 py-2 bg-green-900/50 rounded-full text-green-300 border border-green-700 text-sm font-medium">
+                    <i class="fas fa-scale-balanced mr-2"></i>MIT License
+                </span>
+            </div>
+
+            <!-- CTA Buttons -->
+            <div class="flex flex-col sm:flex-row justify-center gap-4 mb-12">
+                <a href="#installation" class="group px-8 py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40">
+                    <i class="fas fa-rocket mr-2 group-hover:animate-pulse"></i>
+                    Get Started
+                </a>
+                <a href="https://github.com/Sakib-Dalal/cloudlab" target="_blank" class="px-8 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-semibold text-lg transition-all">
+                    <i class="fab fa-github mr-2"></i>
+                    View on GitHub
+                </a>
+            </div>
+
+            <!-- Quick Install -->
+            <div class="code-block rounded-xl p-4 max-w-2xl mx-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-slate-400 text-sm">Quick Install</span>
+                    <button onclick="copyCode(this, 'git clone https://github.com/Sakib-Dalal/cloudlab.git && cd cloudlab && ./build.sh')" class="copy-btn text-slate-400 hover:text-white transition-colors">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <code class="text-cyan-400 text-sm sm:text-base">git clone https://github.com/Sakib-Dalal/cloudlab.git && cd cloudlab && ./build.sh</code>
+            </div>
+
+            <!-- Scroll Indicator -->
+            <div class="absolute bottom-8 left-1/2 -translate-x-1/2 scroll-indicator">
+                <i class="fas fa-chevron-down text-slate-400 text-2xl"></i>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">✨ Features</span>
+                </h2>
+                <p class="text-slate-400 text-lg max-w-2xl mx-auto">Everything you need for remote development in one powerful CLI tool</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Feature Cards -->
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-violet-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-bolt text-violet-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">One-command Setup</h3>
+                    <p class="text-slate-400"><code class="text-cyan-400">cloudlab init</code> configures everything automatically</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-orange-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-cloud text-orange-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Free Cloudflare Tunnels</h3>
+                    <p class="text-slate-400">Public URLs without account or token required</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-pink-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-envelope text-pink-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Email Notifications</h3>
+                    <p class="text-slate-400">Receive tunnel URLs automatically via email</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-yellow-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-book text-yellow-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Jupyter Lab & Notebook</h3>
+                    <p class="text-slate-400">Full-featured notebook environment for data science</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-blue-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-code text-blue-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">VS Code Server</h3>
+                    <p class="text-slate-400">Browser-based code editor with full extension support</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-green-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fab fa-python text-green-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">UV Package Manager</h3>
+                    <p class="text-slate-400">Lightning-fast Python environment management</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-purple-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fab fa-apple text-purple-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Apple MPS Support</h3>
+                    <p class="text-slate-400">Hardware acceleration on Apple Silicon</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-emerald-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-microchip text-emerald-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">NVIDIA CUDA</h3>
+                    <p class="text-slate-400">Full GPU acceleration support for deep learning</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-red-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fas fa-battery-half text-red-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Low Power Mode</h3>
+                    <p class="text-slate-400">Optimized for energy efficiency on laptops</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Prerequisites Section -->
+    <section id="prerequisites" class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">📋 Prerequisites</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Install Go on your system before getting started</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- macOS -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-apple text-2xl text-white"></i>
+                            <h3 class="text-xl font-semibold">macOS</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="code-block rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-slate-500 text-xs">Terminal</span>
+                                <button onclick="copyCode(this, 'brew install go')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-green-400 text-sm">brew install go</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Linux -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-linux text-2xl text-yellow-400"></i>
+                            <h3 class="text-xl font-semibold">Linux (Ubuntu/Debian)</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="code-block rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-slate-500 text-xs">Terminal</span>
+                                <button onclick="copyCode(this, `wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz\nsudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz\necho 'export PATH=\\$PATH:/usr/local/go/bin' >> ~/.bashrc\nsource ~/.bashrc`)" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <pre class="text-green-400 text-sm overflow-x-auto"><code>wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Windows -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-800">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-windows text-2xl text-blue-400"></i>
+                            <h3 class="text-xl font-semibold">Windows</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <div class="code-block rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-slate-500 text-xs">PowerShell (Admin)</span>
+                                <button onclick="copyCode(this, 'winget install GoLang.Go')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-green-400 text-sm">winget install GoLang.Go</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation" class="py-24 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🚀 Quick Start</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Get up and running in minutes</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto">
+                <!-- Steps -->
+                <div class="space-y-6">
+                    <!-- Step 1 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">1</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-3">Clone the repository</h3>
+                            <div class="code-block rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-slate-500 text-xs">Terminal</span>
+                                    <button onclick="copyCode(this, 'git clone https://github.com/Sakib-Dalal/cloudlab.git\ncd cloudlab')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <pre class="text-green-400 text-sm"><code>git clone https://github.com/Sakib-Dalal/cloudlab.git
+cd cloudlab</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">2</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-3">Build the CLI</h3>
+                            <div class="code-block rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-slate-500 text-xs">Terminal</span>
+                                    <button onclick="copyCode(this, 'chmod +x build.sh\n./build.sh')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <pre class="text-green-400 text-sm"><code>chmod +x build.sh
+./build.sh</code></pre>
+                            </div>
+                            <p class="text-slate-400 text-sm mt-3">Or build manually:</p>
+                            <div class="code-block rounded-lg p-4 mt-2">
+                                <pre class="text-green-400 text-sm"><code>go mod init cloudlab
+go build -ldflags="-s -w" -o cloudlab cloudlab.go
+sudo mv cloudlab /usr/local/bin/</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">3</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-3">Initialize (interactive setup)</h3>
+                            <div class="code-block rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-slate-500 text-xs">Terminal</span>
+                                    <button onclick="copyCode(this, 'cloudlab init')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <code class="text-green-400 text-sm">cloudlab init</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">4</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-3">Install all components</h3>
+                            <div class="code-block rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-slate-500 text-xs">Terminal</span>
+                                    <button onclick="copyCode(this, 'cloudlab install all')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <code class="text-green-400 text-sm">cloudlab install all</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 5 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">5</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-3">Start everything</h3>
+                            <div class="code-block rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-slate-500 text-xs">Terminal</span>
+                                    <button onclick="copyCode(this, 'cloudlab start all')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <code class="text-green-400 text-sm">cloudlab start all</code>
+                            </div>
+                            <p class="text-slate-400 text-sm mt-2">
+                                <i class="fas fa-info-circle mr-1 text-cyan-400"></i>
+                                URLs will be sent to your email if configured!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Step 6 -->
+                    <div class="flex gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">6</div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold mb-3">Check status</h3>
+                            <div class="code-block rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-slate-500 text-xs">Terminal</span>
+                                    <button onclick="copyCode(this, 'cloudlab status')" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                                <code class="text-green-400 text-sm">cloudlab status</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Commands Section -->
+    <section id="commands" class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">📖 Commands Reference</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Complete list of all available commands</p>
+            </div>
+
+            <!-- Command Tables -->
+            <div class="space-y-10">
+                <!-- Services -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-green-600/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-server text-green-400 text-sm"></i>
+                        </span>
+                        Service Commands
+                    </h3>
+                    <div class="table-container bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-800">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start all</code></td><td class="px-6 py-3 text-slate-400">Start all services + tunnels</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start lab</code></td><td class="px-6 py-3 text-slate-400">Start Jupyter Lab</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start notebook</code></td><td class="px-6 py-3 text-slate-400">Start Jupyter Notebook</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start vscode</code></td><td class="px-6 py-3 text-slate-400">Start VS Code Server</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start tunnel</code></td><td class="px-6 py-3 text-slate-400">Start Cloudflare tunnels</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab stop all</code></td><td class="px-6 py-3 text-slate-400">Stop all services</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab restart all</code></td><td class="px-6 py-3 text-slate-400">Restart all services</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab status</code></td><td class="px-6 py-3 text-slate-400">Show status and URLs</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab logs &lt;service&gt;</code></td><td class="px-6 py-3 text-slate-400">View service logs</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Configuration -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-cog text-blue-400 text-sm"></i>
+                        </span>
+                        Configuration Commands
+                    </h3>
+                    <div class="table-container bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-800">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab init</code></td><td class="px-6 py-3 text-slate-400">Interactive setup</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab config</code></td><td class="px-6 py-3 text-slate-400">Show current configuration</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab config set &lt;key&gt; &lt;value&gt;</code></td><td class="px-6 py-3 text-slate-400">Set configuration value</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab config reset</code></td><td class="px-6 py-3 text-slate-400">Reset to defaults</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tunnels -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-orange-600/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-cloud text-orange-400 text-sm"></i>
+                        </span>
+                        Tunnel Commands
+                    </h3>
+                    <div class="table-container bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-800">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel start</code></td><td class="px-6 py-3 text-slate-400">Start tunnels and get URLs</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel stop</code></td><td class="px-6 py-3 text-slate-400">Stop tunnels</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel restart</code></td><td class="px-6 py-3 text-slate-400">Get new URLs</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel status</code></td><td class="px-6 py-3 text-slate-400">Show current URLs</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Email -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-pink-600/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-envelope text-pink-400 text-sm"></i>
+                        </span>
+                        Email Commands
+                    </h3>
+                    <div class="table-container bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-800">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email setup</code></td><td class="px-6 py-3 text-slate-400">Configure email notifications</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email test</code></td><td class="px-6 py-3 text-slate-400">Send test email</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email send</code></td><td class="px-6 py-3 text-slate-400">Send tunnel URLs via email</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Kernels -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-yellow-600/20 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-cube text-yellow-400 text-sm"></i>
+                        </span>
+                        Kernel Commands
+                    </h3>
+                    <div class="table-container bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-800">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab kernel list</code></td><td class="px-6 py-3 text-slate-400">List Jupyter kernels</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab kernel add &lt;name&gt;</code></td><td class="px-6 py-3 text-slate-400">Add kernel with default Python</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab kernel add &lt;name&gt; &lt;version&gt;</code></td><td class="px-6 py-3 text-slate-400">Add kernel with specific Python</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab kernel remove &lt;name&gt;</code></td><td class="px-6 py-3 text-slate-400">Remove kernel</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Environments -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="w-8 h-8 bg-emerald-600/20 rounded-lg flex items-center justify-center">
+                            <i class="fab fa-python text-emerald-400 text-sm"></i>
+                        </span>
+                        Environment Commands
+                    </h3>
+                    <div class="table-container bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-800">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab env list</code></td><td class="px-6 py-3 text-slate-400">List Python environments</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab env create &lt;name&gt; &lt;version&gt;</code></td><td class="px-6 py-3 text-slate-400">Create new environment</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab env remove &lt;name&gt;</code></td><td class="px-6 py-3 text-slate-400">Remove environment</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab env activate &lt;name&gt;</code></td><td class="px-6 py-3 text-slate-400">Show activation command</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab env install &lt;package&gt;</code></td><td class="px-6 py-3 text-slate-400">Install package</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Configuration Section -->
+    <section id="configuration" class="py-24 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">⚙️ Configuration Options</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Customize CloudLab to your needs</p>
+            </div>
+
+            <div class="max-w-5xl mx-auto">
+                <div class="table-container bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <table class="command-table w-full">
+                        <thead class="bg-slate-700">
+                            <tr>
+                                <th class="text-left px-6 py-4 text-slate-200 font-medium">Key</th>
+                                <th class="text-left px-6 py-4 text-slate-200 font-medium">Description</th>
+                                <th class="text-left px-6 py-4 text-slate-200 font-medium">Default</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">working_directory</code></td><td class="px-6 py-3 text-slate-300">Project directory</td><td class="px-6 py-3 text-slate-400">~</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_mode</code></td><td class="px-6 py-3 text-slate-300"><code class="text-cyan-400">lab</code> or <code class="text-cyan-400">notebook</code></td><td class="px-6 py-3 text-slate-400">lab</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_port</code></td><td class="px-6 py-3 text-slate-300">Jupyter port</td><td class="px-6 py-3 text-slate-400">8888</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">vscode_port</code></td><td class="px-6 py-3 text-slate-300">VS Code port</td><td class="px-6 py-3 text-slate-400">8080</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">python_version</code></td><td class="px-6 py-3 text-slate-300">Python version</td><td class="px-6 py-3 text-slate-400">3.11</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_password</code></td><td class="px-6 py-3 text-slate-300">Jupyter password</td><td class="px-6 py-3 text-slate-400">Auto-generated</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">vscode_password</code></td><td class="px-6 py-3 text-slate-300">VS Code password</td><td class="px-6 py-3 text-slate-400">Auto-generated</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">email_address</code></td><td class="px-6 py-3 text-slate-300">Notification email</td><td class="px-6 py-3 text-slate-400">-</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">enable_mps</code></td><td class="px-6 py-3 text-slate-300">Apple MPS acceleration</td><td class="px-6 py-3 text-slate-400">Auto-detected</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">enable_cuda</code></td><td class="px-6 py-3 text-slate-300">NVIDIA CUDA acceleration</td><td class="px-6 py-3 text-slate-400">Auto-detected</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">low_power_mode</code></td><td class="px-6 py-3 text-slate-300">Use less CPU/memory</td><td class="px-6 py-3 text-slate-400">true</td></tr>
+                            <tr><td class="px-6 py-3"><code class="text-yellow-400">notify_on_start</code></td><td class="px-6 py-3 text-slate-300">Email URLs on tunnel start</td><td class="px-6 py-3 text-slate-400">true</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Examples -->
+                <div class="mt-10">
+                    <h3 class="text-xl font-semibold mb-4">Configuration Examples</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-sm mb-2"># Change Jupyter mode</p>
+                            <code class="text-green-400 text-sm">cloudlab config set jupyter_mode notebook</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-sm mb-2"># Change working directory</p>
+                            <code class="text-green-400 text-sm">cloudlab config set working_directory /path/to/projects</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-sm mb-2"># Change port</p>
+                            <code class="text-green-400 text-sm">cloudlab config set jupyter_port 9999</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-sm mb-2"># Change password</p>
+                            <code class="text-green-400 text-sm">cloudlab config set jupyter_password mysecretpassword</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Email Setup Section -->
+    <section id="email" class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">📧 Email Setup</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Configure email notifications to receive tunnel URLs</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <!-- Gmail -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 p-8">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-14 h-14 bg-red-600/20 rounded-xl flex items-center justify-center">
+                            <i class="fab fa-google text-red-400 text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold">Gmail</h3>
+                    </div>
+                    <ol class="space-y-4 text-slate-300">
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-sm font-medium">1</span>
+                            <span>Go to <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-cyan-400 hover:underline">myaccount.google.com/apppasswords</a></span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-sm font-medium">2</span>
+                            <span>Create an App Password for "Mail"</span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-sm font-medium">3</span>
+                            <span>Use this password with <code class="text-cyan-400">cloudlab email setup</code></span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Outlook -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 p-8">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-14 h-14 bg-blue-600/20 rounded-xl flex items-center justify-center">
+                            <i class="fab fa-microsoft text-blue-400 text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold">Outlook / Hotmail</h3>
+                    </div>
+                    <ol class="space-y-4 text-slate-300">
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-sm font-medium">1</span>
+                            <span>Go to <a href="https://account.microsoft.com/security" target="_blank" class="text-cyan-400 hover:underline">account.microsoft.com/security</a></span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-sm font-medium">2</span>
+                            <span>Enable Two-Factor Authentication</span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-6 h-6 bg-violet-600 rounded-full flex items-center justify-center text-sm font-medium">3</span>
+                            <span>Create an App Password</span>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cloud Deployment Section -->
+    <section id="deployment" class="py-24 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">☁️ Cloud Deployment</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Deploy CloudLab on cloud instances</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto space-y-10">
+                <!-- Cloud Providers -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center gap-3">
+                        <i class="fab fa-aws text-orange-400"></i>
+                        <i class="fab fa-google text-blue-400"></i>
+                        <i class="fab fa-microsoft text-cyan-400"></i>
+                        <span>AWS EC2 / Google Cloud / Azure</span>
+                    </h3>
+                    <div class="code-block rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-slate-500 text-xs">SSH Terminal</span>
+                            <button onclick="copyCode(this, `# SSH into your instance
+ssh user@your-instance-ip
+
+# Install Go
+wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+
+# Clone and build
+git clone https://github.com/Sakib-Dalal/cloudlab.git
+cd cloudlab
+./build.sh
+
+# Initialize and start
+cloudlab init
+cloudlab install all
+cloudlab start all`)" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <pre class="text-green-400 text-sm overflow-x-auto"><code># SSH into your instance
+ssh user@your-instance-ip
+
+# Install Go
+wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+
+# Clone and build
+git clone https://github.com/Sakib-Dalal/cloudlab.git
+cd cloudlab
+./build.sh
+
+# Initialize and start
+cloudlab init
+cloudlab install all
+cloudlab start all</code></pre>
+                    </div>
+                </div>
+
+                <!-- Systemd -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center gap-3">
+                        <i class="fas fa-play-circle text-green-400"></i>
+                        Run on Startup (systemd)
+                    </h3>
+                    <div class="code-block rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-slate-500 text-xs">Terminal</span>
+                            <button onclick="copyCode(this, `sudo tee /etc/systemd/system/cloudlab.service << EOF
+[Unit]
+Description=CloudLab Services
+After=network.target
+
+[Service]
+Type=forking
+User=$USER
+ExecStart=/usr/local/bin/cloudlab start all
+ExecStop=/usr/local/bin/cloudlab stop all
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable cloudlab
+sudo systemctl start cloudlab`)" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <pre class="text-green-400 text-sm overflow-x-auto"><code>sudo tee /etc/systemd/system/cloudlab.service << EOF
+[Unit]
+Description=CloudLab Services
+After=network.target
+
+[Service]
+Type=forking
+User=$USER
+ExecStart=/usr/local/bin/cloudlab start all
+ExecStop=/usr/local/bin/cloudlab stop all
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable cloudlab
+sudo systemctl start cloudlab</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- File Locations -->
+    <section id="files" class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">📁 File Locations</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Where CloudLab stores its data</p>
+            </div>
+
+            <div class="max-w-3xl mx-auto">
+                <div class="code-block rounded-xl p-6">
+                    <pre class="text-cyan-300 text-sm overflow-x-auto"><code>~/.cloudlab/
+├── config.json          <span class="text-slate-500"># Configuration</span>
+├── venv/                <span class="text-slate-500"># Main Python environment</span>
+├── envs/                <span class="text-slate-500"># Additional environments</span>
+│   └── &lt;name&gt;/          <span class="text-slate-500"># Named environments</span>
+├── logs/
+│   ├── jupyter.log
+│   ├── vscode.log
+│   ├── tunnel_jupyter.log
+│   └── tunnel_vscode.log
+├── pids/
+│   ├── jupyter.pid
+│   ├── vscode.pid
+│   └── tunnel_*.pid
+└── vscode-data/         <span class="text-slate-500"># VS Code user data</span></code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Troubleshooting Section -->
+    <section id="troubleshooting" class="py-24 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🔧 Troubleshooting</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Common issues and solutions</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto space-y-4">
+                <!-- Accordion Items -->
+                <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-red-400">"Jupyter not found"</span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <code class="text-green-400 text-sm">cloudlab install jupyter</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-red-400">"UV not found"</span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <code class="text-green-400 text-sm">cloudlab install uv</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-red-400">Port already in use</span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <pre class="text-green-400 text-sm"><code>cloudlab config set jupyter_port 9999
+cloudlab restart jupyter</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-yellow-400">View logs</span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <pre class="text-green-400 text-sm"><code>cloudlab logs jupyter
+cloudlab logs vscode
+cloudlab logs tunnel_jupyter</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-yellow-400">Reset everything</span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <pre class="text-green-400 text-sm"><code>cloudlab stop all
+cloudlab config reset
+cloudlab init</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How Tunnels Work -->
+    <section class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🌐 How Tunnels Work</span>
+                </h2>
+                <p class="text-slate-400 text-lg">CloudLab uses Cloudflare Quick Tunnels (TryCloudflare)</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto">
+                <div class="grid md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-green-900/20 border border-green-800 rounded-xl p-6">
+                        <h3 class="text-green-400 font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-check-circle"></i>
+                            Benefits
+                        </h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>No Cloudflare account required</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Creates temporary public URLs</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Free to use</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Secure HTTPS connections</li>
+                        </ul>
+                    </div>
+                    <div class="bg-yellow-900/20 border border-yellow-800 rounded-xl p-6">
+                        <h3 class="text-yellow-400 font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Note
+                        </h3>
+                        <ul class="space-y-2 text-slate-300">
+                            <li class="flex items-center gap-2"><i class="fas fa-info-circle text-yellow-400 text-sm"></i>URLs change when you restart tunnels</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-info-circle text-yellow-400 text-sm"></i>URLs are random like: <code class="text-cyan-400 text-sm">random-words.trycloudflare.com</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="code-block rounded-xl p-6">
+                    <p class="text-slate-400 text-sm mb-4"># To get new URLs:</p>
+                    <pre class="text-green-400 text-sm"><code>cloudlab tunnel restart
+cloudlab email send  # Send new URLs to your email</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-3 gap-12">
+                <!-- Logo & Description -->
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-3xl">☁️</span>
+                        <span class="font-bold text-2xl gradient-text">CloudLab</span>
+                    </div>
+                    <p class="text-slate-400 mb-6">Self-hosted web development environment with Jupyter Lab, VS Code Server, and Cloudflare Tunnels.</p>
+                    <p class="text-slate-500 text-sm">Made with ❤️ by Sakib Dalal</p>
+                </div>
+
+                <!-- Links -->
+                <div>
+                    <h4 class="font-semibold text-lg mb-4">Quick Links</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#features" class="text-slate-400 hover:text-white transition-colors">Features</a></li>
+                        <li><a href="#installation" class="text-slate-400 hover:text-white transition-colors">Installation</a></li>
+                        <li><a href="#commands" class="text-slate-400 hover:text-white transition-colors">Commands</a></li>
+                        <li><a href="#configuration" class="text-slate-400 hover:text-white transition-colors">Configuration</a></li>
+                        <li><a href="#troubleshooting" class="text-slate-400 hover:text-white transition-colors">Troubleshooting</a></li>
+                    </ul>
+                </div>
+
+                <!-- Author -->
+                <div>
+                    <h4 class="font-semibold text-lg mb-4">Author</h4>
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 bg-violet-600 rounded-full flex items-center justify-center text-xl font-bold">S</div>
+                        <div>
+                            <p class="font-medium">Sakib Dalal</p>
+                            <a href="https://github.com/Sakib-Dalal" target="_blank" class="text-slate-400 hover:text-white text-sm">@Sakib-Dalal</a>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <a href="https://github.com/Sakib-Dalal/cloudlab" target="_blank" class="w-10 h-10 bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors">
+                            <i class="fab fa-github text-lg"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <p class="text-slate-500 text-sm">© 2024 CloudLab CLI. MIT License.</p>
+                <p class="text-slate-500 text-sm">Version 1.0.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to Top Button -->
+    <button id="backToTop" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="fixed bottom-8 right-8 w-12 h-12 bg-violet-600 hover:bg-violet-700 rounded-full shadow-lg shadow-violet-500/25 flex items-center justify-center opacity-0 invisible transition-all duration-300 z-40">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <script>
+        // Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Close mobile menu when clicking a link
+        mobileMenu.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+            });
+        });
+
+        // Copy Code Function
+        function copyCode(btn, code) {
+            navigator.clipboard.writeText(code.replace(/\\n/g, '\n')).then(() => {
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fas fa-copy"></i>';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // Accordion Toggle
+        function toggleAccordion(btn) {
+            const content = btn.nextElementSibling;
+            const icon = btn.querySelector('i');
+            const isOpen = content.classList.contains('open');
+
+            // Close all accordions
+            document.querySelectorAll('.accordion-content').forEach(c => c.classList.remove('open'));
+            document.querySelectorAll('.accordion-item button i').forEach(i => i.style.transform = 'rotate(0deg)');
+
+            if (!isOpen) {
+                content.classList.add('open');
+                icon.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        // Navbar Scroll Effect
+        const navbar = document.getElementById('navbar');
+        let lastScroll = 0;
+
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            
+            // Back to top button
+            const backToTop = document.getElementById('backToTop');
+            if (currentScroll > 500) {
+                backToTop.classList.remove('opacity-0', 'invisible');
+                backToTop.classList.add('opacity-100', 'visible');
+            } else {
+                backToTop.classList.add('opacity-0', 'invisible');
+                backToTop.classList.remove('opacity-100', 'visible');
+            }
+
+            // Navbar shadow
+            if (currentScroll > 0) {
+                navbar.classList.add('shadow-lg');
+            } else {
+                navbar.classList.remove('shadow-lg');
+            }
+
+            lastScroll = currentScroll;
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    const headerOffset = 80;
+                    const elementPosition = target.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Active nav link on scroll
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 200) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').slice(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
