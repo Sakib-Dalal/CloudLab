@@ -67,9 +67,20 @@ brew install go
 
 **Linux (Ubuntu/Debian):**
 ```bash
+# 1. Remove any existing Go installation (safe if none exists)
+sudo rm -rf /usr/local/go
+
+# 2. Download Go 1.21.5 (amd64)
 wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
+
+# 3. Extract Go to /usr/local
 sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
+
+# 4. Add Go to PATH only if not already added
+grep -qxF 'export PATH=$PATH:/usr/local/go/bin' ~/.bashrc || \
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+
+# 5. Reload shell
 source ~/.bashrc
 ```
 
