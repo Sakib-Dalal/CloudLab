@@ -1,6 +1,7 @@
 // CloudLab CLI - Self-hosted Web Editor Setup Tool
 // Author: Sakib Dalal
 // GitHub: https://github.com/Sakib-Dalal
+// DOCS: https://cloudlab-alpha.vercel.app/
 // Uses UV package manager for fast Python management
 // Supports Linux, macOS (including Apple Silicon with MPS), Windows
 
@@ -31,6 +32,7 @@ const (
 	VERSION = "1.0.0"
 	AUTHOR  = "Sakib Dalal"
 	GITHUB  = "https://github.com/Sakib-Dalal"
+	DOCS    = "https://cloudlab-alpha.vercel.app/"
 )
 
 // ANSI Color codes
@@ -241,6 +243,7 @@ func showVersion() {
 	fmt.Printf("%s%s☁️  CloudLab CLI%s %sv%s%s\n", Bold, BrightCyan, Reset, BrightGreen, VERSION, Reset)
 	fmt.Printf("%s👤 Author:%s %s%s%s\n", Dim, Reset, BrightYellow, AUTHOR, Reset)
 	fmt.Printf("%s🔗 GitHub:%s %s%s%s\n", Dim, Reset, BrightBlue+Underline, GITHUB, Reset)
+	fmt.Printf("%s📄 DOCS:%s %s%s%s\n", Dim, Reset, BrightBlue+Underline, DOCS, Reset)
 }
 
 func showHelp() {
