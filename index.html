@@ -165,6 +165,27 @@
             40% { transform: translateY(-10px); }
             60% { transform: translateY(-5px); }
         }
+
+        .new-badge {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #10b981, 0 0 10px #10b981; }
+            to { box-shadow: 0 0 10px #10b981, 0 0 20px #10b981; }
+        }
+
+        .architecture-box {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 640px) {
+            .architecture-box {
+                font-size: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-white">
@@ -175,6 +196,7 @@
                 <a href="#" class="flex items-center gap-2">
                     <span class="text-2xl">☁️</span>
                     <span class="font-bold text-xl gradient-text">CloudLab</span>
+                    <span class="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-medium">v1.1.0</span>
                 </a>
                 
                 <!-- Desktop Nav -->
@@ -182,8 +204,11 @@
                     <a href="#features" class="nav-link text-slate-300 hover:text-white transition-colors">Features</a>
                     <a href="#installation" class="nav-link text-slate-300 hover:text-white transition-colors">Installation</a>
                     <a href="#commands" class="nav-link text-slate-300 hover:text-white transition-colors">Commands</a>
+                    <a href="#ssh" class="nav-link text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+                        SSH
+                        <span class="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded-full">NEW</span>
+                    </a>
                     <a href="#configuration" class="nav-link text-slate-300 hover:text-white transition-colors">Config</a>
-                    <a href="#deployment" class="nav-link text-slate-300 hover:text-white transition-colors">Deployment</a>
                     <a href="https://github.com/Sakib-Dalal/cloudlab" target="_blank" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg transition-colors">
                         <i class="fab fa-github"></i>
                         <span>GitHub</span>
@@ -203,6 +228,7 @@
                 <a href="#features" class="block text-slate-300 hover:text-white py-2">Features</a>
                 <a href="#installation" class="block text-slate-300 hover:text-white py-2">Installation</a>
                 <a href="#commands" class="block text-slate-300 hover:text-white py-2">Commands</a>
+                <a href="#ssh" class="block text-slate-300 hover:text-white py-2">SSH Terminal <span class="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full">NEW</span></a>
                 <a href="#configuration" class="block text-slate-300 hover:text-white py-2">Configuration</a>
                 <a href="#deployment" class="block text-slate-300 hover:text-white py-2">Deployment</a>
                 <a href="https://github.com/Sakib-Dalal/cloudlab" target="_blank" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg transition-colors w-fit">
@@ -240,7 +266,8 @@
             <p class="text-xl sm:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto">
                 Turn any computer, laptop, or cloud instance into a remote development environment accessible from anywhere with 
                 <span class="text-cyan-400 font-semibold">Jupyter Lab</span>, 
-                <span class="text-blue-400 font-semibold">VS Code Server</span>, and 
+                <span class="text-blue-400 font-semibold">VS Code Server</span>, 
+                <span class="text-green-400 font-semibold">Web SSH Terminal</span>, and 
                 <span class="text-orange-400 font-semibold">Cloudflare Tunnels</span>
             </p>
 
@@ -255,6 +282,18 @@
                 <span class="px-4 py-2 bg-green-900/50 rounded-full text-green-300 border border-green-700 text-sm font-medium">
                     <i class="fas fa-scale-balanced mr-2"></i>MIT License
                 </span>
+                <span class="px-4 py-2 bg-blue-900/50 rounded-full text-blue-300 border border-blue-700 text-sm font-medium">
+                    <i class="fas fa-code-branch mr-2"></i>v1.1.0
+                </span>
+            </div>
+
+            <!-- What's New Banner -->
+            <div class="mb-10 inline-block">
+                <a href="#ssh" class="group flex items-center gap-3 bg-gradient-to-r from-green-900/50 to-emerald-900/50 border border-green-600 rounded-full px-6 py-3 hover:border-green-400 transition-all">
+                    <span class="new-badge bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">NEW in v1.1.0</span>
+                    <span class="text-green-300">🔒 Web SSH Terminal - Browser-based SSH access via ttyd</span>
+                    <i class="fas fa-arrow-right text-green-400 group-hover:translate-x-1 transition-transform"></i>
+                </a>
             </div>
 
             <!-- CTA Buttons -->
@@ -339,9 +378,21 @@
                     <p class="text-slate-400">Browser-based code editor with full extension support</p>
                 </div>
 
-                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                <!-- NEW: Web SSH Terminal -->
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-green-700 relative overflow-hidden">
+                    <div class="absolute top-3 right-3">
+                        <span class="new-badge bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">NEW</span>
+                    </div>
                     <div class="w-12 h-12 bg-green-600/20 rounded-xl flex items-center justify-center mb-4">
-                        <i class="fab fa-python text-green-400 text-xl"></i>
+                        <i class="fas fa-terminal text-green-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2">Web SSH Terminal</h3>
+                    <p class="text-slate-400">Browser-based SSH access via ttyd - no SSH client needed</p>
+                </div>
+
+                <div class="feature-card card-gradient p-6 rounded-2xl border border-slate-800">
+                    <div class="w-12 h-12 bg-cyan-600/20 rounded-xl flex items-center justify-center mb-4">
+                        <i class="fab fa-python text-cyan-400 text-xl"></i>
                     </div>
                     <h3 class="text-xl font-semibold mb-2">UV Package Manager</h3>
                     <p class="text-slate-400">Lightning-fast Python environment management</p>
@@ -374,8 +425,64 @@
         </div>
     </section>
 
+    <!-- What's New Section -->
+    <section id="whats-new" class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🆕 What's New in v1.1.0</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Major update with Web SSH Terminal support</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-700 rounded-2xl p-8">
+                    <div class="flex items-start gap-6">
+                        <div class="flex-shrink-0 w-16 h-16 bg-green-600/30 rounded-2xl flex items-center justify-center">
+                            <i class="fas fa-terminal text-green-400 text-3xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-2xl font-bold text-green-400 mb-4">🔒 Web-Based SSH Terminal</h3>
+                            <p class="text-slate-300 mb-6">Access your server's terminal directly from your browser! No SSH client needed.</p>
+                            
+                            <div class="grid sm:grid-cols-2 gap-4 mb-6">
+                                <div class="flex items-center gap-3 text-slate-300">
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                    <span><strong>ttyd Integration</strong> - Lightweight web terminal</span>
+                                </div>
+                                <div class="flex items-center gap-3 text-slate-300">
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                    <span><strong>Cloudflare Tunnel</strong> - Secure public SSH access</span>
+                                </div>
+                                <div class="flex items-center gap-3 text-slate-300">
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                    <span><strong>Email Notifications</strong> - SSH URL in emails</span>
+                                </div>
+                                <div class="flex items-center gap-3 text-slate-300">
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                    <span><strong>Cross-Platform</strong> - Linux, macOS, Windows</span>
+                                </div>
+                            </div>
+
+                            <div class="code-block rounded-lg p-4">
+                                <pre class="text-green-400 text-sm"><code># Start SSH terminal
+cloudlab start ssh
+
+# Configure SSH settings
+cloudlab ssh config
+
+# Get public SSH URL
+cloudlab tunnel start</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Prerequisites Section -->
-    <section id="prerequisites" class="py-24 bg-slate-950">
+    <section id="prerequisites" class="py-24 bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
@@ -386,8 +493,8 @@
 
             <div class="grid md:grid-cols-3 gap-6">
                 <!-- macOS -->
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-800">
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-4 border-b border-slate-700">
                         <div class="flex items-center gap-3">
                             <i class="fab fa-apple text-2xl text-white"></i>
                             <h3 class="text-xl font-semibold">macOS</h3>
@@ -407,8 +514,8 @@
                 </div>
 
                 <!-- Linux -->
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-800">
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-4 border-b border-slate-700">
                         <div class="flex items-center gap-3">
                             <i class="fab fa-linux text-2xl text-yellow-400"></i>
                             <h3 class="text-xl font-semibold">Linux (Ubuntu/Debian)</h3>
@@ -418,35 +525,22 @@
                         <div class="code-block rounded-lg p-4">
                             <div class="flex justify-between items-center mb-2">
                                 <span class="text-slate-500 text-xs">Terminal</span>
-                                <button onclick="copyCode(this, `wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz\nsudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz\necho 'export PATH=\\$PATH:/usr/local/go/bin' >> ~/.bashrc\nsource ~/.bashrc`)" class="copy-btn text-slate-500 hover:text-white text-sm">
+                                <button onclick="copyCode(this, `sudo rm -rf /usr/local/go\nwget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz\nsudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz\necho 'export PATH=\\$PATH:/usr/local/go/bin' >> ~/.bashrc\nsource ~/.bashrc`)" class="copy-btn text-slate-500 hover:text-white text-sm">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
-                            <pre class="text-green-400 text-sm overflow-x-auto"><code>
-                                # 1. Remove any existing Go installation (safe if none exists)
-sudo rm -rf /usr/local/go
-
-# 2. Download Go 1.21.5 (amd64)
+                            <pre class="text-green-400 text-sm overflow-x-auto"><code>sudo rm -rf /usr/local/go
 wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
-
-# 3. Extract Go to /usr/local
 sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
-
-# 4. Add Go to PATH only if not already added
-grep -qxF 'export PATH=$PATH:/usr/local/go/bin' ~/.bashrc || \
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-
-# 5. Reload shell
-source ~/.bashrc
-
-                            </code></pre>
+source ~/.bashrc</code></pre>
                         </div>
                     </div>
                 </div>
 
                 <!-- Windows -->
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
-                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 border-b border-slate-800">
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-4 border-b border-slate-700">
                         <div class="flex items-center gap-3">
                             <i class="fab fa-windows text-2xl text-blue-400"></i>
                             <h3 class="text-xl font-semibold">Windows</h3>
@@ -469,7 +563,7 @@ source ~/.bashrc
     </section>
 
     <!-- Installation Section -->
-    <section id="installation" class="py-24 bg-slate-900">
+    <section id="installation" class="py-24 bg-slate-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
@@ -544,7 +638,7 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                     <div class="flex gap-4">
                         <div class="flex-shrink-0 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center font-bold">4</div>
                         <div class="flex-1">
-                            <h3 class="text-lg font-semibold mb-3">Install all components</h3>
+                            <h3 class="text-lg font-semibold mb-3">Install all components (including SSH terminal)</h3>
                             <div class="code-block rounded-lg p-4">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-slate-500 text-xs">Terminal</span>
@@ -599,6 +693,133 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
         </div>
     </section>
 
+    <!-- SSH Terminal Section -->
+    <section id="ssh" class="py-24 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <span class="inline-block new-badge bg-green-500 text-white text-sm font-bold px-3 py-1 rounded-full mb-4">NEW in v1.1.0</span>
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🔒 SSH Terminal Setup</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Browser-based terminal access using ttyd</p>
+            </div>
+
+            <div class="max-w-5xl mx-auto space-y-8">
+                <!-- Installation -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center gap-3">
+                        <i class="fas fa-download text-green-400"></i>
+                        Installation
+                    </h3>
+                    <p class="text-slate-300 mb-4">ttyd is automatically installed when you run:</p>
+                    <div class="code-block rounded-lg p-4 mb-6">
+                        <pre class="text-green-400 text-sm"><code>cloudlab install all
+# or
+cloudlab install ssh</code></pre>
+                    </div>
+
+                    <h4 class="text-lg font-medium text-slate-200 mb-4">Manual Installation</h4>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-xs mb-2">macOS</p>
+                            <code class="text-green-400 text-sm">brew install ttyd</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-xs mb-2">Ubuntu/Debian</p>
+                            <code class="text-green-400 text-sm">sudo apt-get install ttyd</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-xs mb-2">Other Linux (binary)</p>
+                            <pre class="text-green-400 text-xs overflow-x-auto"><code>wget https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64
+chmod +x ttyd.x86_64
+sudo mv ttyd.x86_64 /usr/local/bin/ttyd</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center gap-3">
+                        <i class="fas fa-play text-blue-400"></i>
+                        Usage
+                    </h3>
+                    <div class="code-block rounded-lg p-4 mb-6">
+                        <pre class="text-green-400 text-sm"><code># Start SSH terminal
+cloudlab start ssh
+
+# Access locally
+# Open http://localhost:2222 in your browser
+
+# Get public URL via Cloudflare tunnel
+cloudlab tunnel start
+
+# Check status
+cloudlab ssh status</code></pre>
+                    </div>
+                </div>
+
+                <!-- SSH Commands Table -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-700">
+                        <h3 class="text-xl font-semibold flex items-center gap-3">
+                            <i class="fas fa-terminal text-green-400"></i>
+                            SSH Terminal Commands
+                        </h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-700">
+                                <tr>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Command</th>
+                                    <th class="text-left px-6 py-3 text-slate-300 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700">
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab ssh</code></td><td class="px-6 py-3 text-slate-400">Show SSH terminal status</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab ssh config</code></td><td class="px-6 py-3 text-slate-400">Configure SSH settings</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab ssh start</code></td><td class="px-6 py-3 text-slate-400">Start SSH terminal</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab ssh stop</code></td><td class="px-6 py-3 text-slate-400">Stop SSH terminal</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab ssh restart</code></td><td class="px-6 py-3 text-slate-400">Restart SSH terminal</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start ssh</code></td><td class="px-6 py-3 text-slate-400">Start SSH terminal (alternative)</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab stop ssh</code></td><td class="px-6 py-3 text-slate-400">Stop SSH terminal (alternative)</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab logs ssh</code></td><td class="px-6 py-3 text-slate-400">View SSH terminal logs</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Security -->
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center gap-3">
+                        <i class="fas fa-shield-alt text-yellow-400"></i>
+                        Security
+                    </h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-medium text-slate-200 mb-2">Password Protection</h4>
+                            <p class="text-slate-400 text-sm mb-3">Set a password for web authentication:</p>
+                            <div class="code-block rounded-lg p-3">
+                                <code class="text-green-400 text-sm">cloudlab config set ssh_password mysecretpassword</code>
+                            </div>
+                        </div>
+                        <div>
+                            <ul class="space-y-3 text-slate-300">
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-lock text-green-400"></i>
+                                    <span><strong>HTTPS:</strong> All traffic encrypted via Cloudflare</span>
+                                </li>
+                                <li class="flex items-center gap-2">
+                                    <i class="fas fa-user-shield text-green-400"></i>
+                                    <span><strong>Auth:</strong> System credentials or custom password</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Commands Section -->
     <section id="commands" class="py-24 bg-slate-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -632,11 +853,13 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start lab</code></td><td class="px-6 py-3 text-slate-400">Start Jupyter Lab</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start notebook</code></td><td class="px-6 py-3 text-slate-400">Start Jupyter Notebook</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start vscode</code></td><td class="px-6 py-3 text-slate-400">Start VS Code Server</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start ssh</code></td><td class="px-6 py-3 text-slate-400">Start Web SSH Terminal <span class="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full ml-2">NEW</span></td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab start tunnel</code></td><td class="px-6 py-3 text-slate-400">Start Cloudflare tunnels</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab stop all</code></td><td class="px-6 py-3 text-slate-400">Stop all services</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab stop ssh</code></td><td class="px-6 py-3 text-slate-400">Stop SSH terminal <span class="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full ml-2">NEW</span></td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab restart all</code></td><td class="px-6 py-3 text-slate-400">Restart all services</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab status</code></td><td class="px-6 py-3 text-slate-400">Show status and URLs</td></tr>
-                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab logs &lt;service&gt;</code></td><td class="px-6 py-3 text-slate-400">View service logs</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab logs &lt;service&gt;</code></td><td class="px-6 py-3 text-slate-400">View service logs (jupyter, vscode, ssh, tunnel_*)</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -685,7 +908,7 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-800">
-                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel start</code></td><td class="px-6 py-3 text-slate-400">Start tunnels and get URLs</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel start</code></td><td class="px-6 py-3 text-slate-400">Start tunnels and get URLs (Jupyter, VS Code, SSH)</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel stop</code></td><td class="px-6 py-3 text-slate-400">Stop tunnels</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel restart</code></td><td class="px-6 py-3 text-slate-400">Get new URLs</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab tunnel status</code></td><td class="px-6 py-3 text-slate-400">Show current URLs</td></tr>
@@ -713,7 +936,7 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                             <tbody class="divide-y divide-slate-800">
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email setup</code></td><td class="px-6 py-3 text-slate-400">Configure email notifications</td></tr>
                                 <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email test</code></td><td class="px-6 py-3 text-slate-400">Send test email</td></tr>
-                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email send</code></td><td class="px-6 py-3 text-slate-400">Send tunnel URLs via email</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-cyan-400">cloudlab email send</code></td><td class="px-6 py-3 text-slate-400">Send tunnel URLs via email (includes SSH URL)</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -785,35 +1008,66 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                 <p class="text-slate-400 text-lg">Customize CloudLab to your needs</p>
             </div>
 
-            <div class="max-w-5xl mx-auto">
-                <div class="table-container bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                    <table class="command-table w-full">
-                        <thead class="bg-slate-700">
-                            <tr>
-                                <th class="text-left px-6 py-4 text-slate-200 font-medium">Key</th>
-                                <th class="text-left px-6 py-4 text-slate-200 font-medium">Description</th>
-                                <th class="text-left px-6 py-4 text-slate-200 font-medium">Default</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-700">
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">working_directory</code></td><td class="px-6 py-3 text-slate-300">Project directory</td><td class="px-6 py-3 text-slate-400">~</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_mode</code></td><td class="px-6 py-3 text-slate-300"><code class="text-cyan-400">lab</code> or <code class="text-cyan-400">notebook</code></td><td class="px-6 py-3 text-slate-400">lab</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_port</code></td><td class="px-6 py-3 text-slate-300">Jupyter port</td><td class="px-6 py-3 text-slate-400">8888</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">vscode_port</code></td><td class="px-6 py-3 text-slate-300">VS Code port</td><td class="px-6 py-3 text-slate-400">8080</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">python_version</code></td><td class="px-6 py-3 text-slate-300">Python version</td><td class="px-6 py-3 text-slate-400">3.11</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_password</code></td><td class="px-6 py-3 text-slate-300">Jupyter password</td><td class="px-6 py-3 text-slate-400">Auto-generated</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">vscode_password</code></td><td class="px-6 py-3 text-slate-300">VS Code password</td><td class="px-6 py-3 text-slate-400">Auto-generated</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">email_address</code></td><td class="px-6 py-3 text-slate-300">Notification email</td><td class="px-6 py-3 text-slate-400">-</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">enable_mps</code></td><td class="px-6 py-3 text-slate-300">Apple MPS acceleration</td><td class="px-6 py-3 text-slate-400">Auto-detected</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">enable_cuda</code></td><td class="px-6 py-3 text-slate-300">NVIDIA CUDA acceleration</td><td class="px-6 py-3 text-slate-400">Auto-detected</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">low_power_mode</code></td><td class="px-6 py-3 text-slate-300">Use less CPU/memory</td><td class="px-6 py-3 text-slate-400">true</td></tr>
-                            <tr><td class="px-6 py-3"><code class="text-yellow-400">notify_on_start</code></td><td class="px-6 py-3 text-slate-300">Email URLs on tunnel start</td><td class="px-6 py-3 text-slate-400">true</td></tr>
-                        </tbody>
-                    </table>
+            <div class="max-w-5xl mx-auto space-y-10">
+                <!-- General Settings -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4">General Settings</h3>
+                    <div class="table-container bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-700">
+                                <tr>
+                                    <th class="text-left px-6 py-4 text-slate-200 font-medium">Key</th>
+                                    <th class="text-left px-6 py-4 text-slate-200 font-medium">Description</th>
+                                    <th class="text-left px-6 py-4 text-slate-200 font-medium">Default</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700">
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">working_directory</code></td><td class="px-6 py-3 text-slate-300">Project directory</td><td class="px-6 py-3 text-slate-400">~</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_mode</code></td><td class="px-6 py-3 text-slate-300"><code class="text-cyan-400">lab</code> or <code class="text-cyan-400">notebook</code></td><td class="px-6 py-3 text-slate-400">lab</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_port</code></td><td class="px-6 py-3 text-slate-300">Jupyter port</td><td class="px-6 py-3 text-slate-400">8888</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">vscode_port</code></td><td class="px-6 py-3 text-slate-300">VS Code port</td><td class="px-6 py-3 text-slate-400">8080</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">python_version</code></td><td class="px-6 py-3 text-slate-300">Python version</td><td class="px-6 py-3 text-slate-400">3.11</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">jupyter_password</code></td><td class="px-6 py-3 text-slate-300">Jupyter password</td><td class="px-6 py-3 text-slate-400">Auto-generated</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">vscode_password</code></td><td class="px-6 py-3 text-slate-300">VS Code password</td><td class="px-6 py-3 text-slate-400">Auto-generated</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">email_address</code></td><td class="px-6 py-3 text-slate-300">Notification email</td><td class="px-6 py-3 text-slate-400">-</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">enable_mps</code></td><td class="px-6 py-3 text-slate-300">Apple MPS acceleration</td><td class="px-6 py-3 text-slate-400">Auto-detected</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">enable_cuda</code></td><td class="px-6 py-3 text-slate-300">NVIDIA CUDA acceleration</td><td class="px-6 py-3 text-slate-400">Auto-detected</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">low_power_mode</code></td><td class="px-6 py-3 text-slate-300">Use less CPU/memory</td><td class="px-6 py-3 text-slate-400">true</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-yellow-400">notify_on_start</code></td><td class="px-6 py-3 text-slate-300">Email URLs on tunnel start</td><td class="px-6 py-3 text-slate-400">true</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- SSH Terminal Settings -->
+                <div>
+                    <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        SSH Terminal Settings
+                        <span class="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">NEW</span>
+                    </h3>
+                    <div class="table-container bg-slate-800 rounded-xl border border-green-700 overflow-hidden">
+                        <table class="command-table w-full">
+                            <thead class="bg-slate-700">
+                                <tr>
+                                    <th class="text-left px-6 py-4 text-slate-200 font-medium">Key</th>
+                                    <th class="text-left px-6 py-4 text-slate-200 font-medium">Description</th>
+                                    <th class="text-left px-6 py-4 text-slate-200 font-medium">Default</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700">
+                                <tr><td class="px-6 py-3"><code class="text-green-400">ssh_port</code></td><td class="px-6 py-3 text-slate-300">Web SSH terminal port</td><td class="px-6 py-3 text-slate-400">2222</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-green-400">ssh_user</code></td><td class="px-6 py-3 text-slate-300">SSH username</td><td class="px-6 py-3 text-slate-400">Current user</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-green-400">ssh_password</code></td><td class="px-6 py-3 text-slate-300">SSH password (optional, for web auth)</td><td class="px-6 py-3 text-slate-400">System auth</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-green-400">ssh_host</code></td><td class="px-6 py-3 text-slate-300">SSH target host</td><td class="px-6 py-3 text-slate-400">localhost</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-green-400">ssh_target_port</code></td><td class="px-6 py-3 text-slate-300">SSH target port</td><td class="px-6 py-3 text-slate-400">22</td></tr>
+                                <tr><td class="px-6 py-3"><code class="text-green-400">ssh_enabled</code></td><td class="px-6 py-3 text-slate-300">Enable SSH terminal</td><td class="px-6 py-3 text-slate-400">true</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- Examples -->
-                <div class="mt-10">
+                <div>
                     <h3 class="text-xl font-semibold mb-4">Configuration Examples</h3>
                     <div class="grid md:grid-cols-2 gap-4">
                         <div class="code-block rounded-lg p-4">
@@ -825,8 +1079,16 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                             <code class="text-green-400 text-sm">cloudlab config set working_directory /path/to/projects</code>
                         </div>
                         <div class="code-block rounded-lg p-4">
-                            <p class="text-slate-400 text-sm mb-2"># Change port</p>
-                            <code class="text-green-400 text-sm">cloudlab config set jupyter_port 9999</code>
+                            <p class="text-slate-400 text-sm mb-2"># Configure SSH terminal port</p>
+                            <code class="text-green-400 text-sm">cloudlab config set ssh_port 3000</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-sm mb-2"># Set SSH username</p>
+                            <code class="text-green-400 text-sm">cloudlab config set ssh_user myuser</code>
+                        </div>
+                        <div class="code-block rounded-lg p-4">
+                            <p class="text-slate-400 text-sm mb-2"># Disable SSH terminal</p>
+                            <code class="text-green-400 text-sm">cloudlab config set ssh_enabled false</code>
                         </div>
                         <div class="code-block rounded-lg p-4">
                             <p class="text-slate-400 text-sm mb-2"># Change password</p>
@@ -838,19 +1100,88 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
         </div>
     </section>
 
+    <!-- Architecture Section -->
+    <section id="architecture" class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🏗️ Architecture</span>
+                </h2>
+                <p class="text-slate-400 text-lg">How CloudLab components work together</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto">
+                <div class="code-block rounded-xl p-6 overflow-x-auto">
+                    <pre class="architecture-box text-cyan-300"><code>┌─────────────────────────────────────────────────────────────────┐
+│                        CloudLab CLI v1.1.0                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │   Jupyter   │  │   VS Code   │  │     SSH     │   ◀── NEW    │
+│  │  Lab/NB     │  │   Server    │  │   Terminal  │              │
+│  │  :8888      │  │   :8080     │  │   :2222     │              │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
+│         │                │                │                      │
+│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐              │
+│  │  Cloudflare │  │  Cloudflare │  │  Cloudflare │              │
+│  │   Tunnel    │  │   Tunnel    │  │   Tunnel    │              │
+│  └──────┬──────┘  └──────┴──────┘  └──────┬──────┘              │
+│         │                │                │                      │
+│         └────────────────┼────────────────┘                      │
+│                          │                                       │
+│                   ┌──────┴──────┐                               │
+│                   │    Email    │                               │
+│                   │ Notification│                               │
+│                   └─────────────┘                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘</code></pre>
+                </div>
+
+                <!-- Tunnel URLs Info -->
+                <div class="mt-8 bg-slate-800 rounded-xl border border-slate-700 p-6">
+                    <h3 class="text-lg font-semibold mb-4">🌐 Tunnel URLs</h3>
+                    <p class="text-slate-400 mb-4">After starting tunnels, you'll get three public URLs:</p>
+                    <div class="grid sm:grid-cols-3 gap-4">
+                        <div class="flex items-center gap-3 bg-slate-700/50 rounded-lg p-3">
+                            <i class="fas fa-book text-yellow-400"></i>
+                            <div>
+                                <p class="text-sm text-slate-300 font-medium">Jupyter</p>
+                                <code class="text-xs text-cyan-400">jupyter-xyz.trycloudflare.com</code>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 bg-slate-700/50 rounded-lg p-3">
+                            <i class="fas fa-code text-blue-400"></i>
+                            <div>
+                                <p class="text-sm text-slate-300 font-medium">VS Code</p>
+                                <code class="text-xs text-cyan-400">vscode-abc.trycloudflare.com</code>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 bg-slate-700/50 rounded-lg p-3">
+                            <i class="fas fa-terminal text-green-400"></i>
+                            <div>
+                                <p class="text-sm text-slate-300 font-medium">SSH Terminal</p>
+                                <code class="text-xs text-cyan-400">ssh-def.trycloudflare.com</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Email Setup Section -->
-    <section id="email" class="py-24 bg-slate-950">
+    <section id="email" class="py-24 bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
                     <span class="gradient-text">📧 Email Setup</span>
                 </h2>
-                <p class="text-slate-400 text-lg">Configure email notifications to receive tunnel URLs</p>
+                <p class="text-slate-400 text-lg">Configure email notifications to receive tunnel URLs (now includes SSH!)</p>
             </div>
 
             <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
                 <!-- Gmail -->
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 p-8">
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
                     <div class="flex items-center gap-4 mb-6">
                         <div class="w-14 h-14 bg-red-600/20 rounded-xl flex items-center justify-center">
                             <i class="fab fa-google text-red-400 text-2xl"></i>
@@ -874,7 +1205,7 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                 </div>
 
                 <!-- Outlook -->
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 p-8">
+                <div class="bg-slate-800 rounded-2xl border border-slate-700 p-8">
                     <div class="flex items-center gap-4 mb-6">
                         <div class="w-14 h-14 bg-blue-600/20 rounded-xl flex items-center justify-center">
                             <i class="fab fa-microsoft text-blue-400 text-2xl"></i>
@@ -897,11 +1228,33 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                     </ol>
                 </div>
             </div>
+
+            <!-- Email Contents -->
+            <div class="max-w-3xl mx-auto mt-10">
+                <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+                    <h3 class="text-lg font-semibold mb-4">📬 Email Contents</h3>
+                    <p class="text-slate-400 mb-4">When you run <code class="text-cyan-400">cloudlab email send</code>, you'll receive:</p>
+                    <div class="grid sm:grid-cols-3 gap-4">
+                        <div class="flex items-center gap-3 text-slate-300">
+                            <i class="fas fa-book text-yellow-400"></i>
+                            <span>Jupyter URL + Password</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-300">
+                            <i class="fas fa-code text-blue-400"></i>
+                            <span>VS Code URL + Password</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-300">
+                            <i class="fas fa-terminal text-green-400"></i>
+                            <span>SSH URL + Username <span class="text-xs bg-green-600 px-1.5 py-0.5 rounded text-white">NEW</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
     <!-- Cloud Deployment Section -->
-    <section id="deployment" class="py-24 bg-slate-900">
+    <section id="deployment" class="py-24 bg-slate-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
@@ -922,23 +1275,7 @@ sudo mv cloudlab /usr/local/bin/</code></pre>
                     <div class="code-block rounded-lg p-4">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-slate-500 text-xs">SSH Terminal</span>
-                            <button onclick="copyCode(this, `# SSH into your instance
-ssh user@your-instance-ip
-
-# Install Go
-wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz
-export PATH=$PATH:/usr/local/go/bin
-
-# Clone and build
-git clone https://github.com/Sakib-Dalal/cloudlab.git
-cd cloudlab
-./build.sh
-
-# Initialize and start
-cloudlab init
-cloudlab install all
-cloudlab start all`)" class="copy-btn text-slate-500 hover:text-white text-sm">
+                            <button onclick="copyCode(this, `# SSH into your instance\nssh user@your-instance-ip\n\n# Install Go\nwget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz\nsudo tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz\nexport PATH=$PATH:/usr/local/go/bin\n\n# Clone and build\ngit clone https://github.com/Sakib-Dalal/cloudlab.git\ncd cloudlab\n./build.sh\n\n# Initialize and start\ncloudlab init\ncloudlab install all\ncloudlab start all\n\n# Your SSH terminal is now accessible via Cloudflare tunnel!`)" class="copy-btn text-slate-500 hover:text-white text-sm">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -958,7 +1295,9 @@ cd cloudlab
 # Initialize and start
 cloudlab init
 cloudlab install all
-cloudlab start all</code></pre>
+cloudlab start all
+
+# Your SSH terminal is now accessible via Cloudflare tunnel!</code></pre>
                     </div>
                 </div>
 
@@ -971,25 +1310,7 @@ cloudlab start all</code></pre>
                     <div class="code-block rounded-lg p-4">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-slate-500 text-xs">Terminal</span>
-                            <button onclick="copyCode(this, `sudo tee /etc/systemd/system/cloudlab.service << EOF
-[Unit]
-Description=CloudLab Services
-After=network.target
-
-[Service]
-Type=forking
-User=$USER
-ExecStart=/usr/local/bin/cloudlab start all
-ExecStop=/usr/local/bin/cloudlab stop all
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable cloudlab
-sudo systemctl start cloudlab`)" class="copy-btn text-slate-500 hover:text-white text-sm">
+                            <button onclick="copyCode(this, `sudo tee /etc/systemd/system/cloudlab.service << EOF\n[Unit]\nDescription=CloudLab Services\nAfter=network.target\n\n[Service]\nType=forking\nUser=$USER\nExecStart=/usr/local/bin/cloudlab start all\nExecStop=/usr/local/bin/cloudlab stop all\nRestart=on-failure\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\nsudo systemctl daemon-reload\nsudo systemctl enable cloudlab\nsudo systemctl start cloudlab`)" class="copy-btn text-slate-500 hover:text-white text-sm">
                                 <i class="fas fa-copy"></i>
                             </button>
                         </div>
@@ -1019,7 +1340,7 @@ sudo systemctl start cloudlab</code></pre>
     </section>
 
     <!-- File Locations -->
-    <section id="files" class="py-24 bg-slate-950">
+    <section id="files" class="py-24 bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
@@ -1038,12 +1359,17 @@ sudo systemctl start cloudlab</code></pre>
 ├── logs/
 │   ├── jupyter.log
 │   ├── vscode.log
+│   ├── <span class="text-green-400">ssh.log</span>           <span class="text-slate-500"># SSH terminal logs (NEW!)</span>
 │   ├── tunnel_jupyter.log
-│   └── tunnel_vscode.log
+│   ├── tunnel_vscode.log
+│   └── <span class="text-green-400">tunnel_ssh.log</span>   <span class="text-slate-500"># SSH tunnel logs (NEW!)</span>
 ├── pids/
 │   ├── jupyter.pid
 │   ├── vscode.pid
-│   └── tunnel_*.pid
+│   ├── <span class="text-green-400">ssh.pid</span>          <span class="text-slate-500"># SSH terminal PID (NEW!)</span>
+│   ├── tunnel_jupyter.pid
+│   ├── tunnel_vscode.pid
+│   └── <span class="text-green-400">tunnel_ssh.pid</span>  <span class="text-slate-500"># SSH tunnel PID (NEW!)</span>
 └── vscode-data/         <span class="text-slate-500"># VS Code user data</span></code></pre>
                 </div>
             </div>
@@ -1051,7 +1377,7 @@ sudo systemctl start cloudlab</code></pre>
     </section>
 
     <!-- Troubleshooting Section -->
-    <section id="troubleshooting" class="py-24 bg-slate-900">
+    <section id="troubleshooting" class="py-24 bg-slate-950">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
@@ -1090,6 +1416,23 @@ sudo systemctl start cloudlab</code></pre>
                     </div>
                 </div>
 
+                <div class="accordion-item bg-slate-800 rounded-xl border border-green-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-green-400">"ttyd not found" (SSH terminal) <span class="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full ml-2">NEW</span></span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <pre class="text-green-400 text-sm"><code>cloudlab install ssh
+# or manually
+brew install ttyd        # macOS
+sudo apt-get install ttyd  # Ubuntu/Debian</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
                     <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
                         <span class="font-medium text-red-400">Port already in use</span>
@@ -1099,7 +1442,8 @@ sudo systemctl start cloudlab</code></pre>
                         <div class="px-6 pb-4">
                             <div class="code-block rounded-lg p-4">
                                 <pre class="text-green-400 text-sm"><code>cloudlab config set jupyter_port 9999
-cloudlab restart jupyter</code></pre>
+cloudlab config set ssh_port 3000
+cloudlab restart all</code></pre>
                             </div>
                         </div>
                     </div>
@@ -1115,7 +1459,31 @@ cloudlab restart jupyter</code></pre>
                             <div class="code-block rounded-lg p-4">
                                 <pre class="text-green-400 text-sm"><code>cloudlab logs jupyter
 cloudlab logs vscode
-cloudlab logs tunnel_jupyter</code></pre>
+cloudlab logs ssh
+cloudlab logs tunnel_jupyter
+cloudlab logs tunnel_vscode
+cloudlab logs tunnel_ssh</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                    <button onclick="toggleAccordion(this)" class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-750 transition-colors">
+                        <span class="font-medium text-yellow-400">SSH terminal not starting</span>
+                        <i class="fas fa-chevron-down text-slate-400 transition-transform"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="px-6 pb-4">
+                            <div class="code-block rounded-lg p-4">
+                                <pre class="text-green-400 text-sm"><code># Check if ttyd is installed
+which ttyd
+
+# View SSH logs
+cloudlab logs ssh
+
+# Try manual start
+ttyd --port 2222 bash</code></pre>
                             </div>
                         </div>
                     </div>
@@ -1141,7 +1509,7 @@ cloudlab init</code></pre>
     </section>
 
     <!-- How Tunnels Work -->
-    <section class="py-24 bg-slate-950">
+    <section class="py-24 bg-slate-900">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16">
                 <h2 class="text-3xl sm:text-4xl font-bold mb-4">
@@ -1162,6 +1530,7 @@ cloudlab init</code></pre>
                             <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Creates temporary public URLs</li>
                             <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Free to use</li>
                             <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Secure HTTPS connections</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-green-400 text-sm"></i>Separate tunnels for Jupyter, VS Code, and SSH</li>
                         </ul>
                     </div>
                     <div class="bg-yellow-900/20 border border-yellow-800 rounded-xl p-6">
@@ -1185,6 +1554,52 @@ cloudlab email send  # Send new URLs to your email</code></pre>
         </div>
     </section>
 
+    <!-- Acknowledgments Section -->
+    <section class="py-24 bg-slate-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold mb-4">
+                    <span class="gradient-text">🙏 Acknowledgments</span>
+                </h2>
+                <p class="text-slate-400 text-lg">Built with amazing open source projects</p>
+            </div>
+
+            <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+                <a href="https://github.com/tsl0922/ttyd" target="_blank" class="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:border-green-600 transition-colors group">
+                    <div class="flex items-center gap-3 mb-3">
+                        <i class="fas fa-terminal text-green-400 text-xl"></i>
+                        <h3 class="font-semibold group-hover:text-green-400 transition-colors">ttyd</h3>
+                    </div>
+                    <p class="text-slate-400 text-sm">Web-based terminal emulator</p>
+                </a>
+
+                <a href="https://github.com/coder/code-server" target="_blank" class="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:border-blue-600 transition-colors group">
+                    <div class="flex items-center gap-3 mb-3">
+                        <i class="fas fa-code text-blue-400 text-xl"></i>
+                        <h3 class="font-semibold group-hover:text-blue-400 transition-colors">code-server</h3>
+                    </div>
+                    <p class="text-slate-400 text-sm">VS Code in the browser</p>
+                </a>
+
+                <a href="https://www.cloudflare.com/" target="_blank" class="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:border-orange-600 transition-colors group">
+                    <div class="flex items-center gap-3 mb-3">
+                        <i class="fas fa-cloud text-orange-400 text-xl"></i>
+                        <h3 class="font-semibold group-hover:text-orange-400 transition-colors">Cloudflare</h3>
+                    </div>
+                    <p class="text-slate-400 text-sm">Free tunneling service</p>
+                </a>
+
+                <a href="https://github.com/astral-sh/uv" target="_blank" class="bg-slate-800 rounded-xl border border-slate-700 p-6 hover:border-purple-600 transition-colors group">
+                    <div class="flex items-center gap-3 mb-3">
+                        <i class="fab fa-python text-purple-400 text-xl"></i>
+                        <h3 class="font-semibold group-hover:text-purple-400 transition-colors">UV</h3>
+                    </div>
+                    <p class="text-slate-400 text-sm">Fast Python package manager</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="bg-slate-900 border-t border-slate-800 py-16">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1194,8 +1609,9 @@ cloudlab email send  # Send new URLs to your email</code></pre>
                     <div class="flex items-center gap-2 mb-4">
                         <span class="text-3xl">☁️</span>
                         <span class="font-bold text-2xl gradient-text">CloudLab</span>
+                        <span class="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-medium">v1.1.0</span>
                     </div>
-                    <p class="text-slate-400 mb-6">Self-hosted web development environment with Jupyter Lab, VS Code Server, and Cloudflare Tunnels.</p>
+                    <p class="text-slate-400 mb-6">Self-hosted web development environment with Jupyter Lab, VS Code Server, Web SSH Terminal, and Cloudflare Tunnels.</p>
                     <p class="text-slate-500 text-sm">Made with ❤️ by Sakib Dalal</p>
                 </div>
 
@@ -1205,6 +1621,7 @@ cloudlab email send  # Send new URLs to your email</code></pre>
                     <ul class="space-y-2">
                         <li><a href="#features" class="text-slate-400 hover:text-white transition-colors">Features</a></li>
                         <li><a href="#installation" class="text-slate-400 hover:text-white transition-colors">Installation</a></li>
+                        <li><a href="#ssh" class="text-slate-400 hover:text-white transition-colors">SSH Terminal <span class="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded-full">NEW</span></a></li>
                         <li><a href="#commands" class="text-slate-400 hover:text-white transition-colors">Commands</a></li>
                         <li><a href="#configuration" class="text-slate-400 hover:text-white transition-colors">Configuration</a></li>
                         <li><a href="#troubleshooting" class="text-slate-400 hover:text-white transition-colors">Troubleshooting</a></li>
@@ -1230,8 +1647,8 @@ cloudlab email send  # Send new URLs to your email</code></pre>
             </div>
 
             <div class="border-t border-slate-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                <p class="text-slate-500 text-sm">© 2025 CloudLab CLI. MIT License.</p>
-                <p class="text-slate-500 text-sm">Version 1.0.0</p>
+                <p class="text-slate-500 text-sm">© 2024 CloudLab CLI. MIT License.</p>
+                <p class="text-slate-500 text-sm">Version 1.1.0</p>
             </div>
         </div>
     </footer>
