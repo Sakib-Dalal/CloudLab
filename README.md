@@ -29,6 +29,15 @@
 - ⚡ **MPS/CUDA Support** - GPU acceleration for Apple/NVIDIA
 - 🔋 **Low Power Mode** - Energy efficient
 
+## Screenshots
+### Dashboard
+![Dashboard01](./Screenshots/dashboard-01.png)
+![Dashboard02](./Screenshots/dashboard-02.png)
+
+### CLI
+![CLI01](./Screenshots/CLI-01.png)
+![CLI02](./Screenshots/CLI-02.png)
+
 ## 🚀 Quick Start
 
 ```bash
