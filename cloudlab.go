@@ -1,9 +1,9 @@
 // CloudLab CLI - Self-hosted Web Editor Setup Tool
 // Author: Sakib Dalal
 // GitHub: https://github.com/Sakib-Dalal
-// DOCS: https://cloudlab-alpha.vercel.app/
 // Uses UV package manager for fast Python management
 // Supports Linux, macOS (including Apple Silicon with MPS), Windows
+// Features: Jupyter Lab/Notebook, VS Code Server, Web SSH Terminal
 
 package main
 
@@ -29,10 +29,9 @@ import (
 )
 
 const (
-	VERSION = "1.0.0"
+	VERSION = "1.1.0"
 	AUTHOR  = "Sakib Dalal"
 	GITHUB  = "https://github.com/Sakib-Dalal"
-	DOCS    = "https://cloudlab-alpha.vercel.app/"
 )
 
 // ANSI Color codes
@@ -85,6 +84,7 @@ func getLogo() string {
                                                
 %s  ☁️  Self-Hosted Web Editor CLI %sv%s%s
 %s  📦 Using UV Package Manager%s
+%s  🔒 Web SSH Terminal Support%s
 %s  👤 Author: %s%s%s
 %s  🔗 GitHub: %s%s%s
 `,
@@ -96,6 +96,7 @@ func getLogo() string {
 		Bold, BrightMagenta, Reset,
 		BrightWhite, Bold, VERSION, Reset,
 		Dim, Reset,
+		BrightGreen, Reset,
 		BrightYellow, Bold, AUTHOR, Reset,
 		BrightBlue, Underline, GITHUB, Reset,
 	)
@@ -105,9 +106,14 @@ func getLogo() string {
 type Config struct {
 	JupyterPort      int        `json:"jupyter_port"`
 	VSCodePort       int        `json:"vscode_port"`
+	SSHPort          int        `json:"ssh_port"`
 	PythonVersion    string     `json:"python_version"`
 	JupyterPassword  string     `json:"jupyter_password"`
 	VSCodePassword   string     `json:"vscode_password"`
+	SSHUser          string     `json:"ssh_user"`
+	SSHPassword      string     `json:"ssh_password"`
+	SSHHost          string     `json:"ssh_host"`
+	SSHTargetPort    int        `json:"ssh_target_port"`
 	JupyterMode      string     `json:"jupyter_mode"`
 	WorkingDirectory string     `json:"working_directory"`
 	EmailAddress     string     `json:"email_address"`
@@ -119,11 +125,13 @@ type Config struct {
 	LowPowerMode     bool       `json:"low_power_mode"`
 	TunnelURLs       TunnelURLs `json:"tunnel_urls"`
 	NotifyOnStart    bool       `json:"notify_on_start"`
+	SSHEnabled       bool       `json:"ssh_enabled"`
 }
 
 type TunnelURLs struct {
 	Jupyter string `json:"jupyter"`
 	VSCode  string `json:"vscode"`
+	SSH     string `json:"ssh"`
 }
 
 var config Config
@@ -193,7 +201,7 @@ func main() {
 			showLogs(args[0])
 		} else {
 			printError("Usage: cloudlab logs <service>")
-			printInfo("Services: jupyter, vscode, tunnel_jupyter, tunnel_vscode")
+			printInfo("Services: jupyter, vscode, ssh, tunnel_jupyter, tunnel_vscode, tunnel_ssh")
 		}
 	case "config":
 		if len(args) > 0 {
@@ -225,6 +233,12 @@ func main() {
 		} else {
 			showEmailConfig()
 		}
+	case "ssh":
+		if len(args) > 0 {
+			manageSSH(args)
+		} else {
+			showSSHStatus()
+		}
 	case "update":
 		updateComponents()
 	case "uninstall":
@@ -243,7 +257,6 @@ func showVersion() {
 	fmt.Printf("%s%s☁️  CloudLab CLI%s %sv%s%s\n", Bold, BrightCyan, Reset, BrightGreen, VERSION, Reset)
 	fmt.Printf("%s👤 Author:%s %s%s%s\n", Dim, Reset, BrightYellow, AUTHOR, Reset)
 	fmt.Printf("%s🔗 GitHub:%s %s%s%s\n", Dim, Reset, BrightBlue+Underline, GITHUB, Reset)
-	fmt.Printf("%s📄 DOCS:%s %s%s%s\n", Dim, Reset, BrightBlue+Underline, DOCS, Reset)
 }
 
 func showHelp() {
@@ -254,9 +267,9 @@ func showHelp() {
 
 	fmt.Printf("\n%s%sSERVICE COMMANDS:%s\n", Bold, BrightGreen, Reset)
 	fmt.Printf("  %sinit%s                    Initialize and configure CloudLab\n", BrightYellow, Reset)
-	fmt.Printf("  %sinstall%s [component]     Install components %s(all|jupyter|vscode|cloudflare|uv)%s\n", BrightYellow, Reset, Dim, Reset)
-	fmt.Printf("  %sstart%s [service]         Start services %s(all|jupyter|lab|notebook|vscode|tunnel)%s\n", BrightYellow, Reset, Dim, Reset)
-	fmt.Printf("  %sstop%s [service]          Stop services %s(all|jupyter|vscode|tunnel)%s\n", BrightYellow, Reset, Dim, Reset)
+	fmt.Printf("  %sinstall%s [component]     Install components %s(all|jupyter|vscode|ssh|cloudflare|uv)%s\n", BrightYellow, Reset, Dim, Reset)
+	fmt.Printf("  %sstart%s [service]         Start services %s(all|jupyter|lab|notebook|vscode|ssh|tunnel)%s\n", BrightYellow, Reset, Dim, Reset)
+	fmt.Printf("  %sstop%s [service]          Stop services %s(all|jupyter|vscode|ssh|tunnel)%s\n", BrightYellow, Reset, Dim, Reset)
 	fmt.Printf("  %srestart%s [service]       Restart services\n", BrightYellow, Reset)
 	fmt.Printf("  %sstatus%s                  Show status of all services\n", BrightYellow, Reset)
 	fmt.Printf("  %slogs%s <service>          Show logs for a service\n", BrightYellow, Reset)
@@ -271,6 +284,14 @@ func showHelp() {
 	fmt.Printf("  %stunnel start%s            Start Cloudflare tunnels\n", BrightYellow, Reset)
 	fmt.Printf("  %stunnel stop%s             Stop Cloudflare tunnels\n", BrightYellow, Reset)
 	fmt.Printf("  %stunnel restart%s          Restart tunnels and get new URLs\n", BrightYellow, Reset)
+
+	fmt.Printf("\n%s%sSSH TERMINAL:%s %s(NEW!)%s\n", Bold, BrightGreen, Reset, BrightYellow, Reset)
+	fmt.Printf("  %sssh%s                     Show SSH terminal status\n", BrightYellow, Reset)
+	fmt.Printf("  %sssh config%s              Configure SSH terminal settings\n", BrightYellow, Reset)
+	fmt.Printf("  %sssh start%s               Start web SSH terminal\n", BrightYellow, Reset)
+	fmt.Printf("  %sssh stop%s                Stop web SSH terminal\n", BrightYellow, Reset)
+	fmt.Printf("  %sstart ssh%s               Start SSH terminal (alternative)\n", BrightYellow, Reset)
+	fmt.Printf("  %sstop ssh%s                Stop SSH terminal (alternative)\n", BrightYellow, Reset)
 
 	fmt.Printf("\n%s%sKERNEL MANAGEMENT:%s\n", Bold, BrightCyan, Reset)
 	fmt.Printf("  %skernel list%s             List installed Jupyter kernels\n", BrightYellow, Reset)
@@ -300,11 +321,10 @@ func showHelp() {
 	fmt.Printf("  %s$%s cloudlab init\n", BrightGreen, Reset)
 	fmt.Printf("  %s$%s cloudlab install all\n", BrightGreen, Reset)
 	fmt.Printf("  %s$%s cloudlab start all\n", BrightGreen, Reset)
-	fmt.Printf("  %s$%s cloudlab start lab\n", BrightGreen, Reset)
-	fmt.Printf("  %s$%s cloudlab start notebook\n", BrightGreen, Reset)
+	fmt.Printf("  %s$%s cloudlab start ssh          %s# Start web SSH terminal%s\n", BrightGreen, Reset, Dim, Reset)
+	fmt.Printf("  %s$%s cloudlab ssh config         %s# Configure SSH settings%s\n", BrightGreen, Reset, Dim, Reset)
 	fmt.Printf("  %s$%s cloudlab tunnel start\n", BrightGreen, Reset)
-	fmt.Printf("  %s$%s cloudlab email send\n", BrightGreen, Reset)
-	fmt.Printf("  %s$%s cloudlab config set jupyter_mode notebook\n", BrightGreen, Reset)
+	fmt.Printf("  %s$%s cloudlab email send         %s# Send all URLs including SSH%s\n", BrightGreen, Reset, Dim, Reset)
 	fmt.Printf("  %s$%s cloudlab kernel add datascience 3.10\n", BrightGreen, Reset)
 	fmt.Printf("  %s$%s cloudlab env create ml 3.11\n", BrightGreen, Reset)
 	fmt.Println()
@@ -317,12 +337,25 @@ func loadConfig() {
 	config = Config{
 		JupyterPort:      8888,
 		VSCodePort:       8080,
+		SSHPort:          2222,
+		SSHTargetPort:    22,
+		SSHHost:          "localhost",
+		SSHUser:          os.Getenv("USER"),
 		PythonVersion:    "3.11",
 		JupyterMode:      "lab",
 		WorkingDirectory: homeDir,
 		SMTPPort:         587,
 		LowPowerMode:     true,
 		NotifyOnStart:    true,
+		SSHEnabled:       true,
+	}
+
+	// Get current user for SSH
+	if config.SSHUser == "" {
+		config.SSHUser = os.Getenv("USERNAME") // Windows
+	}
+	if config.SSHUser == "" {
+		config.SSHUser = "root"
 	}
 
 	// Detect Apple Silicon
@@ -357,9 +390,15 @@ func showConfig() {
 	// Create display config with hidden passwords
 	fmt.Printf("  %s%-20s%s : %s%d%s\n", BrightYellow, "jupyter_port", Reset, BrightWhite, config.JupyterPort, Reset)
 	fmt.Printf("  %s%-20s%s : %s%d%s\n", BrightYellow, "vscode_port", Reset, BrightWhite, config.VSCodePort, Reset)
+	fmt.Printf("  %s%-20s%s : %s%d%s\n", BrightYellow, "ssh_port", Reset, BrightWhite, config.SSHPort, Reset)
 	fmt.Printf("  %s%-20s%s : %s%s%s\n", BrightYellow, "python_version", Reset, BrightWhite, config.PythonVersion, Reset)
 	fmt.Printf("  %s%-20s%s : %s%s%s\n", BrightYellow, "jupyter_mode", Reset, BrightGreen, config.JupyterMode, Reset)
 	fmt.Printf("  %s%-20s%s : %s%s%s\n", BrightYellow, "working_directory", Reset, BrightBlue, config.WorkingDirectory, Reset)
+
+	// SSH settings
+	fmt.Printf("  %s%-20s%s : %s%s%s\n", BrightYellow, "ssh_user", Reset, BrightCyan, config.SSHUser, Reset)
+	fmt.Printf("  %s%-20s%s : %s%s:%d%s\n", BrightYellow, "ssh_target", Reset, Dim, config.SSHHost, config.SSHTargetPort, Reset)
+	fmt.Printf("  %s%-20s%s : %s%v%s\n", BrightYellow, "ssh_enabled", Reset, boolColor(config.SSHEnabled), config.SSHEnabled, Reset)
 
 	// Passwords (hidden)
 	if config.JupyterPassword != "" {
@@ -371,6 +410,11 @@ func showConfig() {
 		fmt.Printf("  %s%-20s%s : %s********%s\n", BrightYellow, "vscode_password", Reset, Dim, Reset)
 	} else {
 		fmt.Printf("  %s%-20s%s : %s(not set)%s\n", BrightYellow, "vscode_password", Reset, Dim, Reset)
+	}
+	if config.SSHPassword != "" {
+		fmt.Printf("  %s%-20s%s : %s********%s\n", BrightYellow, "ssh_password", Reset, Dim, Reset)
+	} else {
+		fmt.Printf("  %s%-20s%s : %s(system auth)%s\n", BrightYellow, "ssh_password", Reset, Dim, Reset)
 	}
 
 	// Email
@@ -421,6 +465,22 @@ func configureOption(args []string) {
 			if p, err := strconv.Atoi(value); err == nil {
 				config.VSCodePort = p
 			}
+		case "ssh_port":
+			if p, err := strconv.Atoi(value); err == nil {
+				config.SSHPort = p
+			}
+		case "ssh_target_port":
+			if p, err := strconv.Atoi(value); err == nil {
+				config.SSHTargetPort = p
+			}
+		case "ssh_host":
+			config.SSHHost = value
+		case "ssh_user":
+			config.SSHUser = value
+		case "ssh_password":
+			config.SSHPassword = value
+		case "ssh_enabled":
+			config.SSHEnabled = value == "true" || value == "1" || value == "yes"
 		case "python_version":
 			config.PythonVersion = value
 		case "jupyter_mode":
@@ -481,7 +541,7 @@ func initSetup() {
 	reader := bufio.NewReader(os.Stdin)
 
 	// Working directory
-	fmt.Printf("\n%s[1/8]%s Enter working directory [%s%s%s]: ", BrightCyan, Reset, Dim, config.WorkingDirectory, Reset)
+	fmt.Printf("\n%s[1/10]%s Enter working directory [%s%s%s]: ", BrightCyan, Reset, Dim, config.WorkingDirectory, Reset)
 	workDir, _ := reader.ReadString('\n')
 	workDir = strings.TrimSpace(workDir)
 	if workDir != "" {
@@ -493,7 +553,7 @@ func initSetup() {
 	}
 
 	// Jupyter mode
-	fmt.Printf("%s[2/8]%s Jupyter mode (lab/notebook) [%s%s%s]: ", BrightCyan, Reset, Dim, config.JupyterMode, Reset)
+	fmt.Printf("%s[2/10]%s Jupyter mode (lab/notebook) [%s%s%s]: ", BrightCyan, Reset, Dim, config.JupyterMode, Reset)
 	mode, _ := reader.ReadString('\n')
 	mode = strings.TrimSpace(strings.ToLower(mode))
 	if mode == "lab" || mode == "notebook" {
@@ -501,7 +561,7 @@ func initSetup() {
 	}
 
 	// Jupyter port
-	fmt.Printf("%s[3/8]%s Enter Jupyter port [%s%d%s]: ", BrightCyan, Reset, Dim, config.JupyterPort, Reset)
+	fmt.Printf("%s[3/10]%s Enter Jupyter port [%s%d%s]: ", BrightCyan, Reset, Dim, config.JupyterPort, Reset)
 	portStr, _ := reader.ReadString('\n')
 	portStr = strings.TrimSpace(portStr)
 	if portStr != "" {
@@ -511,7 +571,7 @@ func initSetup() {
 	}
 
 	// VS Code port
-	fmt.Printf("%s[4/8]%s Enter VS Code port [%s%d%s]: ", BrightCyan, Reset, Dim, config.VSCodePort, Reset)
+	fmt.Printf("%s[4/10]%s Enter VS Code port [%s%d%s]: ", BrightCyan, Reset, Dim, config.VSCodePort, Reset)
 	portStr, _ = reader.ReadString('\n')
 	portStr = strings.TrimSpace(portStr)
 	if portStr != "" {
@@ -520,8 +580,18 @@ func initSetup() {
 		}
 	}
 
+	// SSH Terminal port
+	fmt.Printf("%s[5/10]%s Enter SSH Terminal port [%s%d%s]: ", BrightCyan, Reset, Dim, config.SSHPort, Reset)
+	portStr, _ = reader.ReadString('\n')
+	portStr = strings.TrimSpace(portStr)
+	if portStr != "" {
+		if port, err := strconv.Atoi(portStr); err == nil && port > 0 && port < 65536 {
+			config.SSHPort = port
+		}
+	}
+
 	// Jupyter password
-	fmt.Printf("%s[5/8]%s Enter Jupyter password %s(Enter for auto-generate)%s: ", BrightCyan, Reset, Dim, Reset)
+	fmt.Printf("%s[6/10]%s Enter Jupyter password %s(Enter for auto-generate)%s: ", BrightCyan, Reset, Dim, Reset)
 	password, _ := reader.ReadString('\n')
 	password = strings.TrimSpace(password)
 	if password != "" {
@@ -532,7 +602,7 @@ func initSetup() {
 	}
 
 	// VS Code password
-	fmt.Printf("%s[6/8]%s Enter VS Code password %s(Enter for auto-generate)%s: ", BrightCyan, Reset, Dim, Reset)
+	fmt.Printf("%s[7/10]%s Enter VS Code password %s(Enter for auto-generate)%s: ", BrightCyan, Reset, Dim, Reset)
 	password, _ = reader.ReadString('\n')
 	password = strings.TrimSpace(password)
 	if password != "" {
@@ -542,8 +612,16 @@ func initSetup() {
 		fmt.Printf("       %s🔑 Generated:%s %s%s%s\n", Dim, Reset, BrightGreen, config.VSCodePassword, Reset)
 	}
 
+	// SSH user
+	fmt.Printf("%s[8/10]%s Enter SSH username [%s%s%s]: ", BrightCyan, Reset, Dim, config.SSHUser, Reset)
+	sshUser, _ := reader.ReadString('\n')
+	sshUser = strings.TrimSpace(sshUser)
+	if sshUser != "" {
+		config.SSHUser = sshUser
+	}
+
 	// Email setup
-	fmt.Printf("%s[7/8]%s Enter email for notifications %s(optional)%s: ", BrightCyan, Reset, Dim, Reset)
+	fmt.Printf("%s[9/10]%s Enter email for notifications %s(optional)%s: ", BrightCyan, Reset, Dim, Reset)
 	email, _ := reader.ReadString('\n')
 	email = strings.TrimSpace(email)
 	if email != "" {
@@ -556,7 +634,7 @@ func initSetup() {
 	}
 
 	// Python version
-	fmt.Printf("%s[8/8]%s Enter Python version [%s%s%s]: ", BrightCyan, Reset, Dim, config.PythonVersion, Reset)
+	fmt.Printf("%s[10/10]%s Enter Python version [%s%s%s]: ", BrightCyan, Reset, Dim, config.PythonVersion, Reset)
 	pyVer, _ := reader.ReadString('\n')
 	pyVer = strings.TrimSpace(pyVer)
 	if pyVer != "" {
@@ -628,6 +706,7 @@ func installAll() {
 	installComponent("uv")
 	installComponent("jupyter")
 	installComponent("vscode")
+	installComponent("ssh")
 	installComponent("cloudflare")
 
 	fmt.Println()
@@ -637,6 +716,7 @@ func installAll() {
 		"1. cloudlab start all     # Start all services",
 		"2. cloudlab tunnel start  # Get public URLs",
 		"3. cloudlab status        # Check status",
+		"4. cloudlab email send    # Send URLs to email",
 	})
 }
 
@@ -648,13 +728,15 @@ func installComponent(component string) {
 		installJupyter()
 	case "vscode":
 		installVSCode()
+	case "ssh", "ttyd", "webssh":
+		installSSH()
 	case "cloudflare", "cloudflared":
 		installCloudflare()
 	case "all":
 		installAll()
 	default:
 		printError("Unknown component: " + component)
-		printInfo("Available: all, uv, jupyter, vscode, cloudflare")
+		printInfo("Available: all, uv, jupyter, vscode, ssh, cloudflare")
 	}
 }
 
@@ -895,6 +977,141 @@ user-data-dir: %s
 	}
 }
 
+// ==================== SSH Terminal Installation ====================
+
+func installSSH() {
+	printStep("Installing Web SSH Terminal (ttyd)...")
+
+	// Check if ttyd is already installed
+	if _, err := exec.LookPath("ttyd"); err == nil {
+		printSuccess("ttyd already installed ✓")
+		return
+	}
+
+	switch runtime.GOOS {
+	case "linux":
+		installTTYDLinux()
+	case "darwin":
+		installTTYDMac()
+	case "windows":
+		installTTYDWindows()
+	default:
+		printError("Unsupported OS for ttyd installation")
+		return
+	}
+}
+
+func installTTYDLinux() {
+	// Try package managers first
+	packageManagers := []struct {
+		check   string
+		install []string
+	}{
+		{"apt-get", []string{"sudo", "apt-get", "update", "&&", "sudo", "apt-get", "install", "-y", "ttyd"}},
+		{"yum", []string{"sudo", "yum", "install", "-y", "ttyd"}},
+		{"pacman", []string{"sudo", "pacman", "-S", "--noconfirm", "ttyd"}},
+		{"apk", []string{"sudo", "apk", "add", "ttyd"}},
+	}
+
+	for _, pm := range packageManagers {
+		if _, err := exec.LookPath(pm.check); err == nil {
+			fmt.Printf("  %s→%s Installing via %s...\n", Dim, Reset, pm.check)
+			if pm.check == "apt-get" {
+				exec.Command("sudo", "apt-get", "update").Run()
+				cmd := exec.Command("sudo", "apt-get", "install", "-y", "ttyd")
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err == nil {
+					printSuccess("ttyd installed via apt ✓")
+					return
+				}
+			}
+		}
+	}
+
+	// Fallback: Download binary
+	fmt.Printf("  %s→%s Downloading ttyd binary...\n", Dim, Reset)
+	var url string
+	if runtime.GOARCH == "arm64" {
+		url = "https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.aarch64"
+	} else {
+		url = "https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64"
+	}
+
+	tmpFile := "/tmp/ttyd"
+	if err := downloadFile(tmpFile, url); err != nil {
+		printError("Download failed: " + err.Error())
+		printInfo("Try: sudo apt-get install ttyd")
+		return
+	}
+
+	os.Chmod(tmpFile, 0755)
+	if err := exec.Command("sudo", "mv", tmpFile, "/usr/local/bin/ttyd").Run(); err != nil {
+		// Try without sudo
+		os.Rename(tmpFile, filepath.Join(homeDir, ".local", "bin", "ttyd"))
+	}
+
+	printSuccess("ttyd installed ✓")
+}
+
+func installTTYDMac() {
+	fmt.Printf("  %s→%s Installing via Homebrew...\n", Dim, Reset)
+
+	// Check if brew is installed
+	if _, err := exec.LookPath("brew"); err != nil {
+		printError("Homebrew not found. Please install Homebrew first:")
+		fmt.Printf("  %s/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"%s\n", BrightCyan, Reset)
+		return
+	}
+
+	cmd := exec.Command("brew", "install", "ttyd")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		printError("Failed to install ttyd: " + err.Error())
+		return
+	}
+
+	printSuccess("ttyd installed via Homebrew ✓")
+}
+
+func installTTYDWindows() {
+	printWarning("Windows: ttyd requires manual installation or WSL")
+	fmt.Printf("  %s→%s Option 1: Use WSL and run 'sudo apt install ttyd'\n", Dim, Reset)
+	fmt.Printf("  %s→%s Option 2: Download from https://github.com/tsl0922/ttyd/releases\n", Dim, Reset)
+
+	// Try winget
+	cmd := exec.Command("winget", "install", "tsl0922.ttyd")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err == nil {
+		printSuccess("ttyd installed via winget ✓")
+		return
+	}
+
+	printInfo("Please install ttyd manually and ensure it's in your PATH")
+}
+
+func getTTYDPath() string {
+	locations := []string{
+		"/usr/local/bin/ttyd",
+		"/usr/bin/ttyd",
+		filepath.Join(homeDir, ".local", "bin", "ttyd"),
+	}
+
+	for _, loc := range locations {
+		if _, err := os.Stat(loc); err == nil {
+			return loc
+		}
+	}
+
+	if path, err := exec.LookPath("ttyd"); err == nil {
+		return path
+	}
+
+	return ""
+}
+
 func installCloudflare() {
 	printStep("Installing Cloudflared...")
 
@@ -944,13 +1161,15 @@ func startService(service string) {
 		startJupyter("notebook")
 	case "vscode":
 		startVSCode()
+	case "ssh", "webssh", "terminal":
+		startSSHTerminal()
 	case "tunnel", "tunnels":
 		startTunnels()
 	case "all":
 		startAll()
 	default:
 		printError("Unknown service: " + service)
-		printInfo("Available: all, jupyter, lab, notebook, vscode, tunnel")
+		printInfo("Available: all, jupyter, lab, notebook, vscode, ssh, tunnel")
 	}
 }
 
@@ -960,6 +1179,9 @@ func startAll() {
 
 	startJupyter(config.JupyterMode)
 	startVSCode()
+	if config.SSHEnabled {
+		startSSHTerminal()
+	}
 	startTunnels()
 
 	fmt.Println()
@@ -1073,6 +1295,203 @@ func startVSCode() {
 	}
 }
 
+// ==================== SSH Terminal ====================
+
+func startSSHTerminal() {
+	printStep("Starting Web SSH Terminal...")
+
+	ttydPath := getTTYDPath()
+	if ttydPath == "" {
+		printError("ttyd not found. Run 'cloudlab install ssh' first.")
+		return
+	}
+
+	// Stop existing
+	stopByPID("ssh")
+	time.Sleep(1 * time.Second)
+
+	// Build ttyd command
+	// ttyd provides a web-based terminal that can run any command
+	// We'll use it to spawn a login shell or SSH to localhost
+	var shellCmd string
+	var shellArgs []string
+
+	if runtime.GOOS == "windows" {
+		shellCmd = "cmd.exe"
+		shellArgs = []string{}
+	} else {
+		// Use login shell for full environment
+		shellCmd = "bash"
+		shellArgs = []string{"-l"}
+
+		// If SSH password is set, we can use sshpass for auto-login
+		// Otherwise, use system shell
+		if config.SSHPassword != "" && config.SSHHost != "localhost" && config.SSHHost != "127.0.0.1" {
+			// Connect to remote SSH
+			if _, err := exec.LookPath("sshpass"); err == nil {
+				shellCmd = "sshpass"
+				shellArgs = []string{
+					"-p", config.SSHPassword,
+					"ssh", "-o", "StrictHostKeyChecking=no",
+					fmt.Sprintf("%s@%s", config.SSHUser, config.SSHHost),
+					"-p", strconv.Itoa(config.SSHTargetPort),
+				}
+			}
+		}
+	}
+
+	// Build ttyd arguments
+	args := []string{
+		"--port", strconv.Itoa(config.SSHPort),
+		"--writable",
+	}
+
+	// Add credential if SSH password is set for web terminal authentication
+	if config.SSHPassword != "" {
+		args = append(args, "--credential", fmt.Sprintf("%s:%s", config.SSHUser, config.SSHPassword))
+	}
+
+	// Add shell command
+	args = append(args, shellCmd)
+	args = append(args, shellArgs...)
+
+	cmd := exec.Command(ttydPath, args...)
+	cmd.Dir = config.WorkingDirectory
+
+	// Set environment
+	env := os.Environ()
+	env = append(env, fmt.Sprintf("HOME=%s", homeDir))
+	env = append(env, fmt.Sprintf("USER=%s", config.SSHUser))
+	cmd.Env = env
+
+	logFile, _ := os.Create(filepath.Join(cloudlabDir, "logs", "ssh.log"))
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if err := cmd.Start(); err != nil {
+		printError("Failed to start SSH Terminal: " + err.Error())
+		return
+	}
+
+	if cmd.Process != nil {
+		savePID("ssh", cmd.Process.Pid)
+		fmt.Printf("  %s✓%s SSH Terminal started on port %s%d%s (PID: %d)\n",
+			BrightGreen, Reset, BrightCyan, config.SSHPort, Reset, cmd.Process.Pid)
+		fmt.Printf("    %s→%s URL: %shttp://localhost:%d%s\n", Dim, Reset, BrightBlue+Underline, config.SSHPort, Reset)
+		if config.SSHPassword != "" {
+			fmt.Printf("    %s→%s Username: %s%s%s\n", Dim, Reset, BrightYellow, config.SSHUser, Reset)
+			fmt.Printf("    %s→%s Password: %s%s%s\n", Dim, Reset, BrightYellow, config.SSHPassword, Reset)
+		} else {
+			fmt.Printf("    %s→%s Auth: %sSystem credentials%s\n", Dim, Reset, Dim, Reset)
+		}
+	}
+}
+
+func stopSSHTerminal() {
+	stopByPID("ssh")
+	printSuccess("SSH Terminal stopped")
+}
+
+func manageSSH(args []string) {
+	switch args[0] {
+	case "start":
+		startSSHTerminal()
+	case "stop":
+		stopSSHTerminal()
+	case "restart":
+		stopSSHTerminal()
+		time.Sleep(2 * time.Second)
+		startSSHTerminal()
+	case "config":
+		configureSSH()
+	case "status":
+		showSSHStatus()
+	default:
+		printError("Unknown SSH action: " + args[0])
+		printInfo("Available: start, stop, restart, config, status")
+	}
+}
+
+func configureSSH() {
+	printHeader("🔒 SSH TERMINAL CONFIGURATION")
+
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Printf("  %sSSH Port%s [%s%d%s]: ", BrightYellow, Reset, Dim, config.SSHPort, Reset)
+	portStr, _ := reader.ReadString('\n')
+	portStr = strings.TrimSpace(portStr)
+	if portStr != "" {
+		if port, err := strconv.Atoi(portStr); err == nil && port > 0 && port < 65536 {
+			config.SSHPort = port
+		}
+	}
+
+	fmt.Printf("  %sSSH Username%s [%s%s%s]: ", BrightYellow, Reset, Dim, config.SSHUser, Reset)
+	user, _ := reader.ReadString('\n')
+	user = strings.TrimSpace(user)
+	if user != "" {
+		config.SSHUser = user
+	}
+
+	fmt.Printf("  %sSSH Password%s %s(optional, for web auth)%s: ", BrightYellow, Reset, Dim, Reset)
+	pass, _ := reader.ReadString('\n')
+	pass = strings.TrimSpace(pass)
+	if pass != "" {
+		config.SSHPassword = pass
+	}
+
+	fmt.Printf("  %sSSH Target Host%s [%s%s%s]: ", BrightYellow, Reset, Dim, config.SSHHost, Reset)
+	host, _ := reader.ReadString('\n')
+	host = strings.TrimSpace(host)
+	if host != "" {
+		config.SSHHost = host
+	}
+
+	fmt.Printf("  %sSSH Target Port%s [%s%d%s]: ", BrightYellow, Reset, Dim, config.SSHTargetPort, Reset)
+	portStr, _ = reader.ReadString('\n')
+	portStr = strings.TrimSpace(portStr)
+	if portStr != "" {
+		if port, err := strconv.Atoi(portStr); err == nil && port > 0 && port < 65536 {
+			config.SSHTargetPort = port
+		}
+	}
+
+	fmt.Printf("  %sEnable SSH Terminal%s [%s%v%s]: ", BrightYellow, Reset, Dim, config.SSHEnabled, Reset)
+	enabled, _ := reader.ReadString('\n')
+	enabled = strings.TrimSpace(strings.ToLower(enabled))
+	if enabled == "true" || enabled == "yes" || enabled == "1" {
+		config.SSHEnabled = true
+	} else if enabled == "false" || enabled == "no" || enabled == "0" {
+		config.SSHEnabled = false
+	}
+
+	saveConfig()
+	printSuccess("SSH configuration saved!")
+}
+
+func showSSHStatus() {
+	printHeader("🔒 SSH TERMINAL STATUS")
+
+	if isRunning("ssh") {
+		fmt.Printf("  %s●%s SSH Terminal     %s[Running]%s port %s%d%s\n",
+			BrightGreen, Reset, BrightGreen, Reset, BrightCyan, config.SSHPort, Reset)
+		fmt.Printf("    %s└─%s URL: %shttp://localhost:%d%s\n", Dim, Reset, BrightBlue+Underline, config.SSHPort, Reset)
+		fmt.Printf("    %s└─%s User: %s%s%s\n", Dim, Reset, BrightYellow, config.SSHUser, Reset)
+		if config.TunnelURLs.SSH != "" {
+			fmt.Printf("    %s└─%s Tunnel: %s%s%s\n", Dim, Reset, BrightMagenta+Underline, config.TunnelURLs.SSH, Reset)
+		}
+	} else {
+		fmt.Printf("  %s○%s SSH Terminal     %s[Stopped]%s\n", BrightRed, Reset, BrightRed, Reset)
+	}
+
+	fmt.Printf("\n  %sConfiguration:%s\n", Dim, Reset)
+	fmt.Printf("    %s└─%s Port: %s%d%s\n", Dim, Reset, BrightWhite, config.SSHPort, Reset)
+	fmt.Printf("    %s└─%s User: %s%s%s\n", Dim, Reset, BrightWhite, config.SSHUser, Reset)
+	fmt.Printf("    %s└─%s Target: %s%s:%d%s\n", Dim, Reset, BrightWhite, config.SSHHost, config.SSHTargetPort, Reset)
+	fmt.Printf("    %s└─%s Enabled: %s%v%s\n", Dim, Reset, boolColor(config.SSHEnabled), config.SSHEnabled, Reset)
+	fmt.Println()
+}
+
 func startTunnels() {
 	printStep("Starting Cloudflare tunnels...")
 
@@ -1085,6 +1504,7 @@ func startTunnels() {
 	// Stop existing tunnels
 	stopByPID("tunnel_jupyter")
 	stopByPID("tunnel_vscode")
+	stopByPID("tunnel_ssh")
 	time.Sleep(1 * time.Second)
 
 	// Start Jupyter tunnel
@@ -1117,8 +1537,25 @@ func startTunnels() {
 		extractTunnelURL("vscode", logPath)
 	}()
 
+	// Start SSH tunnel if enabled and running
+	if config.SSHEnabled && isRunning("ssh") {
+		go func() {
+			logPath := filepath.Join(cloudlabDir, "logs", "tunnel_ssh.log")
+			logFile, _ := os.Create(logPath)
+			cmd := exec.Command(cloudflaredPath, "tunnel", "--url", fmt.Sprintf("http://localhost:%d", config.SSHPort))
+			cmd.Stdout = logFile
+			cmd.Stderr = logFile
+			if err := cmd.Start(); err == nil && cmd.Process != nil {
+				savePID("tunnel_ssh", cmd.Process.Pid)
+			}
+			// Wait and extract URL
+			time.Sleep(5 * time.Second)
+			extractTunnelURL("ssh", logPath)
+		}()
+	}
+
 	fmt.Printf("  %s⏳%s Waiting for tunnel URLs...\n", BrightYellow, Reset)
-	time.Sleep(10 * time.Second)
+	time.Sleep(12 * time.Second)
 
 	// Show URLs
 	loadConfig()
@@ -1143,6 +1580,8 @@ func extractTunnelURL(service, logPath string) {
 					config.TunnelURLs.Jupyter = url
 				case "vscode":
 					config.TunnelURLs.VSCode = url
+				case "ssh":
+					config.TunnelURLs.SSH = url
 				}
 				saveConfig()
 				return
@@ -1160,6 +1599,8 @@ func stopService(service string) {
 	case "vscode":
 		stopByPID("vscode")
 		printSuccess("VS Code stopped")
+	case "ssh", "webssh", "terminal":
+		stopSSHTerminal()
 	case "tunnel", "tunnels":
 		stopTunnels()
 	case "all":
@@ -1174,12 +1615,14 @@ func stopAll() {
 	stopTunnels()
 	stopByPID("jupyter")
 	stopByPID("vscode")
+	stopByPID("ssh")
 	printSuccess("All services stopped!")
 }
 
 func stopTunnels() {
 	stopByPID("tunnel_jupyter")
 	stopByPID("tunnel_vscode")
+	stopByPID("tunnel_ssh")
 	config.TunnelURLs = TunnelURLs{}
 	saveConfig()
 	printSuccess("Tunnels stopped")
@@ -1212,6 +1655,16 @@ func showStatus() {
 		fmt.Printf("  %s○%s VS Code          %s[Stopped]%s\n", BrightRed, Reset, BrightRed, Reset)
 	}
 
+	// SSH Terminal
+	if isRunning("ssh") {
+		fmt.Printf("  %s●%s SSH Terminal     %s[Running]%s port %s%d%s\n",
+			BrightGreen, Reset, BrightGreen, Reset, BrightCyan, config.SSHPort, Reset)
+		fmt.Printf("    %s└─%s URL: %shttp://localhost:%d%s\n", Dim, Reset, BrightBlue+Underline, config.SSHPort, Reset)
+		fmt.Printf("    %s└─%s User: %s%s%s\n", Dim, Reset, Dim, config.SSHUser, Reset)
+	} else {
+		fmt.Printf("  %s○%s SSH Terminal     %s[Stopped]%s\n", BrightRed, Reset, BrightRed, Reset)
+	}
+
 	// Tunnels
 	printHeader("🌐 TUNNEL STATUS")
 
@@ -1233,22 +1686,35 @@ func showStatus() {
 		fmt.Printf("  %s○%s VS Code Tunnel   %s[Stopped]%s\n", BrightRed, Reset, BrightRed, Reset)
 	}
 
+	if isRunning("tunnel_ssh") {
+		fmt.Printf("  %s●%s SSH Tunnel       %s[Running]%s\n", BrightGreen, Reset, BrightGreen, Reset)
+		if config.TunnelURLs.SSH != "" {
+			fmt.Printf("    %s└─%s %s%s%s\n", Dim, Reset, BrightMagenta+Underline, config.TunnelURLs.SSH, Reset)
+		}
+	} else {
+		fmt.Printf("  %s○%s SSH Tunnel       %s[Stopped]%s\n", BrightRed, Reset, BrightRed, Reset)
+	}
+
 	// Credentials
 	printHeader("🔐 CREDENTIALS")
 	fmt.Printf("  %sJupyter Password:%s  %s%s%s\n", BrightYellow, Reset, BrightWhite, config.JupyterPassword, Reset)
 	fmt.Printf("  %sVS Code Password:%s  %s%s%s\n", BrightYellow, Reset, BrightWhite, config.VSCodePassword, Reset)
+	fmt.Printf("  %sSSH User:%s          %s%s%s\n", BrightYellow, Reset, BrightWhite, config.SSHUser, Reset)
+	if config.SSHPassword != "" {
+		fmt.Printf("  %sSSH Password:%s      %s%s%s\n", BrightYellow, Reset, BrightWhite, config.SSHPassword, Reset)
+	}
 	fmt.Println()
 }
 
 func showLogs(service string) {
 	validServices := map[string]bool{
-		"jupyter": true, "vscode": true,
-		"tunnel_jupyter": true, "tunnel_vscode": true,
+		"jupyter": true, "vscode": true, "ssh": true,
+		"tunnel_jupyter": true, "tunnel_vscode": true, "tunnel_ssh": true,
 	}
 
 	if !validServices[service] {
 		printError("Unknown service: " + service)
-		printInfo("Available: jupyter, vscode, tunnel_jupyter, tunnel_vscode")
+		printInfo("Available: jupyter, vscode, ssh, tunnel_jupyter, tunnel_vscode, tunnel_ssh")
 		return
 	}
 
@@ -1300,7 +1766,13 @@ func showTunnelStatus() {
 		fmt.Printf("  %s💻 VS Code:%s  %s(no tunnel)%s\n", BrightBlue, Reset, Dim, Reset)
 	}
 
-	if config.TunnelURLs.Jupyter == "" && config.TunnelURLs.VSCode == "" {
+	if config.TunnelURLs.SSH != "" {
+		fmt.Printf("  %s🔒 SSH:%s      %s%s%s\n", BrightGreen, Reset, BrightMagenta+Underline, config.TunnelURLs.SSH, Reset)
+	} else {
+		fmt.Printf("  %s🔒 SSH:%s      %s(no tunnel)%s\n", BrightGreen, Reset, Dim, Reset)
+	}
+
+	if config.TunnelURLs.Jupyter == "" && config.TunnelURLs.VSCode == "" && config.TunnelURLs.SSH == "" {
 		fmt.Printf("\n  %s💡 Run 'cloudlab tunnel start' to get public URLs%s\n", Dim, Reset)
 	}
 	fmt.Println()
@@ -1650,7 +2122,7 @@ func sendTunnelURLsEmail() {
 
 	loadConfig()
 
-	if config.TunnelURLs.Jupyter == "" && config.TunnelURLs.VSCode == "" {
+	if config.TunnelURLs.Jupyter == "" && config.TunnelURLs.VSCode == "" && config.TunnelURLs.SSH == "" {
 		printWarning("No tunnel URLs available. Run 'cloudlab tunnel start'")
 		return
 	}
@@ -1658,6 +2130,26 @@ func sendTunnelURLsEmail() {
 	printStep("Sending tunnel URLs to " + config.EmailAddress + "...")
 
 	hostname, _ := os.Hostname()
+
+	// Build SSH section if available
+	sshSection := ""
+	if config.TunnelURLs.SSH != "" {
+		sshSection = fmt.Sprintf(`
+<div style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); padding: 24px; border-radius: 12px; margin: 20px 0;">
+<h2 style="color: #065f46; margin: 0 0 12px 0;">🔒 SSH Terminal <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px;">NEW</span></h2>
+<p style="margin: 8px 0;"><strong>URL:</strong> <a href="%s" style="color: #7c3aed; font-size: 14px;">%s</a></p>
+<p style="margin: 8px 0;"><strong>Username:</strong> <code style="background: #d1fae5; padding: 4px 8px; border-radius: 4px; font-family: monospace;">%s</code></p>
+%s
+<p style="margin: 8px 0; font-size: 12px; color: #065f46;">Access your server terminal directly from your browser!</p>
+</div>`,
+			config.TunnelURLs.SSH, config.TunnelURLs.SSH, config.SSHUser,
+			func() string {
+				if config.SSHPassword != "" {
+					return fmt.Sprintf(`<p style="margin: 8px 0;"><strong>Password:</strong> <code style="background: #d1fae5; padding: 4px 8px; border-radius: 4px; font-family: monospace;">%s</code></p>`, config.SSHPassword)
+				}
+				return `<p style="margin: 8px 0;"><strong>Auth:</strong> System credentials</p>`
+			}())
+	}
 
 	subject := fmt.Sprintf("☁️ CloudLab URLs - %s", hostname)
 	body := fmt.Sprintf(`<html>
@@ -1678,6 +2170,8 @@ func sendTunnelURLsEmail() {
 <p style="margin: 8px 0;"><strong>Password:</strong> <code style="background: #dbeafe; padding: 4px 8px; border-radius: 4px; font-family: monospace;">%s</code></p>
 </div>
 
+%s
+
 <div style="background: #f3e8ff; padding: 20px; border-radius: 12px; margin: 20px 0;">
 <h3 style="color: #7c3aed; margin: 0 0 8px 0;">📁 Working Directory</h3>
 <code style="color: #6b21a8; font-family: monospace;">%s</code>
@@ -1695,6 +2189,7 @@ Author: %s | <a href="%s" style="color: #7c3aed;">GitHub</a>
 		strings.ToUpper(config.JupyterMode[:1])+config.JupyterMode[1:],
 		config.TunnelURLs.Jupyter, config.TunnelURLs.Jupyter, config.JupyterPassword,
 		config.TunnelURLs.VSCode, config.TunnelURLs.VSCode, config.VSCodePassword,
+		sshSection,
 		config.WorkingDirectory,
 		VERSION, time.Now().Format("2006-01-02 15:04:05"),
 		AUTHOR, GITHUB)
@@ -1765,6 +2260,12 @@ func updateComponents() {
 		exec.Command(uvPath, "pip", "install", "--upgrade", "jupyterlab", "notebook", "--python", pythonPath).Run()
 	}
 
+	// Update ttyd if possible
+	printStep("Checking ttyd updates...")
+	if runtime.GOOS == "darwin" {
+		exec.Command("brew", "upgrade", "ttyd").Run()
+	}
+
 	printSuccess("Update complete! ✓")
 }
 
@@ -1787,7 +2288,7 @@ func uninstallAll() {
 	os.RemoveAll(filepath.Join(homeDir, ".config", "code-server"))
 
 	printSuccess("CloudLab uninstalled! ✓")
-	fmt.Printf("%sNote: UV, code-server, and cloudflared were not removed.%s\n", Dim, Reset)
+	fmt.Printf("%sNote: UV, code-server, ttyd, and cloudflared were not removed.%s\n", Dim, Reset)
 }
 
 // ==================== Utility Functions ====================
