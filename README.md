@@ -1,5 +1,5 @@
 # ☁️ CloudLab CLI v1.2.0
-
+---
 **Self-hosted web development environment with Jupyter Lab/Notebook, VS Code Server, SSH Terminal, and Web Dashboard - all with Cloudflare Tunnels and Email Notifications.**
 
 ```
@@ -8,15 +8,29 @@
  | |    | | ___  _   _  __| | |     __ _| |__  
  | |    | |/ _ \| | | |/ _` | |    / _` | '_ \ 
  | |____| | (_) | |_| | (_| | |___| (_| | |_) |
-  \_____|_|\___/ \__,_|\__,_|______\__,_|_.__/ 
+  \_____|_|\___/ \__,_|\__,_|______\__,_|_.__/
+
 ```
+---
+   [![Author](https://img.shields.io/badge/Author-Sakib%20Dalal-7c3aed?style=for-the-badge)](https://github.com/Sakib-Dalal)
+   [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
+   [![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)](LICENSE)
 
-[![Author](https://img.shields.io/badge/Author-Sakib%20Dalal-7c3aed?style=for-the-badge)](https://github.com/Sakib-Dalal)
-[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
-[![License](https://img.shields.io/badge/License-MIT-red?style=for-the-badge)](LICENSE)
-[![Docs](https://img.shields.io/badge/Docs-CloudLab-green?style=for-the-badge)](https://cloudlab-alpha.vercel.app/)
+---
+<p align="center">
+  <a href="https://cloudlab-alpha.vercel.app/" target="_blank">
+    <img 
+      src="https://img.shields.io/badge/%20DOCUMENTATION-CloudLab-brightgreen?style=for-the-badge&logo=readthedocs&logoColor=white"
+      alt="CloudLab Documentation"
+      height="60"
+    />
+  </a>
+</p>
 
 
+---
+*(Note:- Windows Version and Docker Version is still under development. If you want to test CloudLab beta version for Windows and Docker then change the branch to multi-platform and follow the README file instructions.)*
+---
 ## ✨ Features
 
 - 📓 **Jupyter Lab & Notebook** - Full Python notebook environment
