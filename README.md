@@ -13,6 +13,7 @@
 
 [![Author](https://img.shields.io/badge/Author-Sakib%20Dalal-7c3aed?style=for-the-badge)](https://github.com/Sakib-Dalal)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Docs](https://img.shields.io/badge/Docs-CloudLab-green?style=for-the-badge)](https://cloudlab-alpha.vercel.app/)
 
 
