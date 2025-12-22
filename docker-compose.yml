@@ -1,0 +1,82 @@
+# CloudLab Docker Compose Configuration
+# Author: Sakib Dalal
+# GitHub: https://github.com/Sakib-Dalal
+
+version: '3.8'
+
+services:
+  cloudlab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudlab
+    hostname: cloudlab
+    restart: unless-stopped
+    
+    # Ports
+    ports:
+      - "8888:8888"   # Jupyter Lab/Notebook
+      - "8080:8080"   # VS Code Server
+      - "7681:7681"   # SSH Terminal (ttyd)
+      - "3000:3000"   # Web Dashboard
+    
+    # Volumes
+    volumes:
+      - ./workspace:/home/cloudlab/workspace
+      - cloudlab-data:/home/cloudlab/.cloudlab
+      - cloudlab-jupyter:/home/cloudlab/.jupyter
+      - cloudlab-vscode:/home/cloudlab/.config/code-server
+    
+    # Environment variables
+    environment:
+      - TZ=UTC
+      # Passwords (change these!)
+      - JUPYTER_PASSWORD=cloudlab
+      - VSCODE_PASSWORD=cloudlab
+      # Email notifications (optional)
+      - EMAIL_ADDRESS=
+      - EMAIL_PASSWORD=
+      # Enable Cloudflare tunnels for public URLs
+      - ENABLE_TUNNELS=false
+      # Working directory
+      - WORKING_DIR=/home/cloudlab/workspace
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+# Named volumes for persistence
+volumes:
+  cloudlab-data:
+    driver: local
+  cloudlab-jupyter:
+    driver: local
+  cloudlab-vscode:
+    driver: local
+
+# Optional: GPU support for NVIDIA
+# Uncomment the following if you have NVIDIA GPU
+#
+# services:
+#   cloudlab:
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: all
+#               capabilities: [gpu]

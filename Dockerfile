@@ -1,144 +1,113 @@
-# CloudLab CLI Docker Image
-# Multi-stage build for minimal image size
+# CloudLab Docker Image
+# Author: Sakib Dalal
+# GitHub: https://github.com/Sakib-Dalal/CloudLab
 
-# Build stage
-FROM golang:1.21-alpine AS builder
-
-WORKDIR /build
-
-# Copy source
-COPY cloudlab.go .
-
-# Initialize module and build
-RUN go mod init cloudlab && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o cloudlab cloudlab.go
-
-# Runtime stage
 FROM ubuntu:22.04
 
-LABEL maintainer="CloudLab Team"
-LABEL version="1.0.0"
-LABEL description="Self-hosted web editor with Jupyter Lab and VS Code"
+LABEL maintainer="Sakib Dalal"
+LABEL version="1.2.0"
 
-# Avoid interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
+ENV PATH="/root/.local/bin:$PATH"
 
-# Install base dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    wget \
-    git \
-    openssh-server \
-    ca-certificates \
-    sudo \
-    locales \
-    && rm -rf /var/lib/apt/lists/* \
-    && locale-gen en_US.UTF-8
-
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
-
-# Copy CloudLab CLI from builder
-COPY --from=builder /build/cloudlab /usr/local/bin/cloudlab
-RUN chmod +x /usr/local/bin/cloudlab
-
-# Create non-root user
-RUN useradd -m -s /bin/bash cloudlab && \
-    echo "cloudlab ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-USER cloudlab
-WORKDIR /home/cloudlab
-
-# Install Miniconda
-RUN curl -sL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -p $HOME/miniconda3 && \
-    rm /tmp/miniconda.sh
-
-# Set up conda
-ENV PATH="/home/cloudlab/miniconda3/bin:${PATH}"
-RUN conda init bash && \
-    conda config --set auto_activate_base false
-
-# Create default environment with Jupyter
-RUN conda create -n cloudlab python=3.11 -y && \
-    conda install -n cloudlab -c conda-forge jupyterlab notebook ipykernel -y && \
-    conda clean -afy
+# Install all dependencies
+RUN apt-get update && apt-get install -y \
+    curl wget git ca-certificates \
+    python3 python3-pip python3-venv \
+    nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install code-server
-USER root
 RUN curl -fsSL https://code-server.dev/install.sh | sh
-USER cloudlab
+
+# Install ttyd
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        curl -L https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 -o /usr/local/bin/ttyd; \
+    else \
+        curl -L https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.aarch64 -o /usr/local/bin/ttyd; \
+    fi && chmod +x /usr/local/bin/ttyd
 
 # Install cloudflared
-USER root
-RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared && \
-    chmod +x /usr/local/bin/cloudflared
-USER cloudlab
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared; \
+    else \
+        curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o /usr/local/bin/cloudflared; \
+    fi && chmod +x /usr/local/bin/cloudflared
 
-# Configure SSH
-USER root
-RUN mkdir -p /var/run/sshd && \
-    sed -i 's/#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && \
-    sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-USER cloudlab
+# Install Python packages
+RUN pip3 install --no-cache-dir \
+    jupyterlab notebook ipykernel ipywidgets \
+    numpy pandas matplotlib
+
+# Register kernel
+RUN python3 -m ipykernel install --name cloudlab --display-name "Python 3 (CloudLab)"
 
 # Create directories
-RUN mkdir -p ~/.cloudlab ~/.jupyter ~/.config/code-server
+RUN mkdir -p /root/.cloudlab/logs /root/.cloudlab/pids /workspace
 
-# Set default configuration
-RUN cloudlab config set jupyter_port 8888 && \
-    cloudlab config set vscode_port 8080 && \
-    cloudlab config set low_power_mode true
+# Copy dashboard files
+COPY index.html /root/.cloudlab/dashboard.html
+COPY server.py /root/.cloudlab/server.py
 
-# Expose ports
-EXPOSE 8888 8080 22
+# Configure Jupyter (no password, no token)
+RUN mkdir -p /root/.jupyter && echo "\
+c = get_config()\n\
+c.ServerApp.ip = '0.0.0.0'\n\
+c.ServerApp.port = 8888\n\
+c.ServerApp.open_browser = False\n\
+c.ServerApp.allow_root = True\n\
+c.ServerApp.allow_origin = '*'\n\
+c.ServerApp.token = ''\n\
+c.ServerApp.password = ''\n\
+c.NotebookApp.token = ''\n\
+c.NotebookApp.password = ''\n\
+" > /root/.jupyter/jupyter_server_config.py
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8888/api || exit 1
+# Configure code-server
+RUN mkdir -p /root/.config/code-server && echo "\
+bind-addr: 0.0.0.0:8080\n\
+auth: password\n\
+password: cloudlab\n\
+cert: false\n\
+" > /root/.config/code-server/config.yaml
 
-# Create entrypoint script
-USER root
+# Create config
+RUN echo '{"jupyter_port":8888,"vscode_port":8080,"ssh_port":7681,"dashboard_port":3000}' > /root/.cloudlab/config.json
+
+WORKDIR /workspace
+EXPOSE 8888 8080 7681 3000
+
+# Simple startup script
 RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Start SSH if enabled\n\
-if [ "${ENABLE_SSH:-false}" = "true" ]; then\n\
-    sudo /usr/sbin/sshd\n\
-    echo "SSH server started on port 22"\n\
-fi\n\
-\n\
-# Start services\n\
-echo "Starting CloudLab services..."\n\
-\n\
-# Start Jupyter in background\n\
-source ~/miniconda3/etc/profile.d/conda.sh\n\
-conda activate cloudlab\n\
-jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token="" --NotebookApp.password="" &\n\
-echo "Jupyter Lab started on port 8888"\n\
-\n\
-# Start code-server in background\n\
-code-server --bind-addr 0.0.0.0:8080 --auth none &\n\
-echo "VS Code Server started on port 8080"\n\
-\n\
-# Start tunnel if token is provided\n\
-if [ -n "${CLOUDFLARE_TOKEN}" ]; then\n\
-    cloudflared tunnel run ${TUNNEL_NAME:-cloudlab} &\n\
-    echo "Cloudflare tunnel started"\n\
-fi\n\
-\n\
 echo ""\n\
-echo "CloudLab is ready!"\n\
-echo "Jupyter Lab: http://localhost:8888"\n\
-echo "VS Code: http://localhost:8080"\n\
+echo "============================================"\n\
+echo "  CloudLab Docker v1.2.0"\n\
+echo "  Author: Sakib Dalal"\n\
+echo "  GitHub: github.com/Sakib-Dalal/CloudLab"\n\
+echo "============================================"\n\
 echo ""\n\
-\n\
-# Keep container running\n\
+echo "Starting Jupyter Lab..."\n\
+jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --notebook-dir=/workspace --ServerApp.token="" --ServerApp.password="" > /root/.cloudlab/logs/jupyter.log 2>&1 &\n\
+echo "Starting VS Code..."\n\
+code-server --bind-addr=0.0.0.0:8080 /workspace > /root/.cloudlab/logs/vscode.log 2>&1 &\n\
+echo "Starting Terminal..."\n\
+ttyd --port 7681 --writable bash > /root/.cloudlab/logs/ssh.log 2>&1 &\n\
+echo "Starting Dashboard..."\n\
+python3 /root/.cloudlab/server.py > /root/.cloudlab/logs/dashboard.log 2>&1 &\n\
+echo ""\n\
+echo "============================================"\n\
+echo "  All services started!"\n\
+echo "============================================"\n\
+echo "  Jupyter:   http://localhost:8888"\n\
+echo "  VS Code:   http://localhost:8080  (password: cloudlab)"\n\
+echo "  Terminal:  http://localhost:7681"\n\
+echo "  Dashboard: http://localhost:3000"\n\
+echo "============================================"\n\
+echo ""\n\
 tail -f /dev/null\n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh
+' > /start.sh && chmod +x /start.sh
 
-USER cloudlab
-
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/start.sh"]
