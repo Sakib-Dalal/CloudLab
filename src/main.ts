@@ -1,0 +1,10 @@
+import "@fontsource/dm-sans/400.css";
+import "@fontsource/dm-sans/500.css";
+import "@fontsource/dm-sans/600.css";
+import "@fontsource/manrope/600.css";
+import "@fontsource/manrope/700.css";
+import "@fontsource/manrope/800.css";
+import { mount } from "svelte";
+import App from "./App.svelte";
+import "./styles.css";
+mount(App, { target: document.getElementById("app")! });

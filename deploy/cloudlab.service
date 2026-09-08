@@ -1,0 +1,23 @@
+[Unit]
+Description=CloudLab coordinator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cloudlab
+Group=cloudlab
+StateDirectory=cloudlab
+WorkingDirectory=/var/lib/cloudlab
+ExecStart=/usr/local/bin/cloudlab serve --data-dir /var/lib/cloudlab --web-dir /opt/cloudlab/web
+Environment="CLOUDLAB_APP_URL=https://{workspace}.workspaces.lab.example.com"
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

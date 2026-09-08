@@ -1,0 +1,16 @@
+[Unit]
+Description=CloudLab compute node
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Run as the user who owns your rootless Docker daemon; adjust paths and UID.
+Environment="DOCKER_HOST=unix:///run/user/1000/docker.sock"
+ExecStart=/usr/local/bin/cloudlab agent --coordinator https://lab.example.com --data-dir %h/.local/share/cloudlab-agent
+Restart=on-failure
+RestartSec=10
+UMask=0077
+
+[Install]
+WantedBy=default.target

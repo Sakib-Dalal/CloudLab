@@ -1,0 +1,12 @@
+# Replace these names with domains you control. A wildcard DNS record for
+# *.workspaces.lab.example.com must point at this gateway.
+# Supply a trusted wildcard certificate using your DNS provider's DNS-01 flow.
+# The workspace certificate must cover *.workspaces.lab.example.com.
+lab.example.com {
+    reverse_proxy 127.0.0.1:8088
+}
+
+*.workspaces.lab.example.com {
+    tls /etc/cloudlab/tls/fullchain.pem /etc/cloudlab/tls/privkey.pem
+    reverse_proxy 127.0.0.1:8089
+}

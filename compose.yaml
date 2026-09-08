@@ -1,0 +1,21 @@
+services:
+  coordinator:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8088:8088"
+      - "127.0.0.1:8089:8089"
+    environment:
+      CLOUDLAB_APP_URL: ${CLOUDLAB_APP_URL:-http://{workspace}.localhost:8089}
+    volumes:
+      - coordinator-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 2
+volumes:
+  coordinator-data:
