@@ -11,6 +11,8 @@ fn command(dir: &Path) -> Command {
         .env_remove("CLOUDLAB_COORDINATOR")
         .env_remove("CLOUDLAB_ENROLLMENT")
         .env("CLOUDLAB_AGENT_DIR", dir)
+        // Exercise self-thread detection even on single-core Linux runners.
+        .env("TOKIO_WORKER_THREADS", "2")
         .kill_on_drop(true);
     command
 }
@@ -142,6 +144,44 @@ async fn local_delete_stops_agent_and_only_removes_pairing_files() {
         .await
         .contains("not paired"));
     success(&dir, &["agent", "delete", "--local-only"]).await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn live_agent_without_lock_still_blocks_start_and_delete() {
+    let root = tempfile::tempdir().unwrap();
+    pairing(root.path());
+    let original = std::fs::read(root.path().join("credentials.json")).unwrap();
+    let mut child = start(root.path()).await;
+    // Simulate a legacy agent that runs without holding the current lock file.
+    // This is confined to the test's temporary folder and child process.
+    std::fs::remove_file(root.path().join("agent.lock")).unwrap();
+    for args in [
+        &["agent", "start"][..],
+        &["agent", "delete", "--local-only"][..],
+    ] {
+        let result = timeout(
+            Duration::from_secs(15),
+            command(root.path()).args(args).output(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let error = String::from_utf8_lossy(&result.stderr);
+        assert!(!result.status.success(), "{args:?} unexpectedly succeeded");
+        assert!(
+            error.contains("An older agent may still be using"),
+            "{error}"
+        );
+        assert!(child.try_wait().unwrap().is_none());
+        assert_eq!(
+            std::fs::read(root.path().join("credentials.json")).unwrap(),
+            original
+        );
+    }
+    child.kill().await.unwrap();
+    child.wait().await.unwrap();
+    success(root.path(), &["agent", "delete", "--local-only"]).await;
 }
 
 #[tokio::test]

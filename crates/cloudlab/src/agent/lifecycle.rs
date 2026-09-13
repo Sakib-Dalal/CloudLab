@@ -38,6 +38,9 @@ fn reject_legacy_agent(dir: &Path) -> anyhow::Result<()> {
     let system = System::new_with_specifics(
         RefreshKind::nothing().with_processes(
             ProcessRefreshKind::nothing()
+                // Linux lists threads as processes by default. Their IDs differ
+                // from our PID, but their arguments and data folder are ours.
+                .without_tasks()
                 .with_cmd(UpdateKind::Always)
                 .with_cwd(UpdateKind::Always)
                 .with_environ(UpdateKind::Always),
