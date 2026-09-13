@@ -1,4 +1,5 @@
 use crate::{model::*, relay::Relay};
+use anyhow::Context;
 use axum::{
     extract::{DefaultBodyLimit, Path, Request, State},
     http::{HeaderMap, HeaderValue, Method, StatusCode},
@@ -9,8 +10,8 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
-use tokio::sync::Mutex;
+use std::{net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use tokio::sync::{watch, Mutex};
 use tower_http::services::{ServeDir, ServeFile};
 
 pub type Result<T> = std::result::Result<T, ApiError>;
@@ -61,6 +62,7 @@ pub struct AppState {
     pub remote_public_url: Option<String>,
     login_attempts: Arc<Mutex<(u64, u32)>>,
     desktop_bootstrap: Arc<Mutex<Option<(String, u64)>>>,
+    shutdown: Option<watch::Sender<bool>>,
 }
 #[derive(Clone)]
 pub struct Actor {
@@ -201,6 +203,7 @@ pub async fn create_state(dir: PathBuf, app_url: String) -> anyhow::Result<AppSt
         remote_public_url: None,
         login_attempts: Arc::new(Mutex::new((now(), 0))),
         desktop_bootstrap: Arc::new(Mutex::new(None)),
+        shutdown: None,
     })
 }
 pub fn validate_app_url(value: &str) -> anyhow::Result<()> {
@@ -257,7 +260,10 @@ pub fn router(state: AppState, web: PathBuf) -> Router {
         .route("/agent/poll", post(agent_poll))
         .route("/agent/jobs/{id}", post(agent_complete))
         .route("/agent/tunnel", get(crate::relay::agent_tunnel));
-    let api = api.route("/tls/allow", get(crate::remote::allow_certificate));
+    let mut api = api.route("/tls/allow", get(crate::remote::allow_certificate));
+    if state.shutdown.is_some() {
+        api = api.route("/shutdown", post(shutdown));
+    }
     Router::new()
         .nest("/api", api)
         .fallback_service(
@@ -281,13 +287,119 @@ pub async fn serve(
     if let Some(public_url) = public_url {
         crate::remote::configure(&mut state, &public_url).await?;
     }
+    let (shutdown_tx, shutdown_rx) = watch::channel(false);
+    state.shutdown = Some(shutdown_tx);
     eprintln!("CloudLab coordinator: http://{}", listener.local_addr()?);
     eprintln!("Workspace gateway: {}", gateway.local_addr()?);
-    tokio::spawn(maintenance(state.clone()));
-    tokio::try_join!(
-        async { axum::serve(listener, router(state.clone(), web)).await },
-        async { axum::serve(gateway, crate::relay::gateway_router(state.clone())).await }
-    )?;
+    let maintenance = tokio::spawn(maintenance(state.clone()));
+    let servers = async {
+        tokio::try_join!(
+            async {
+                axum::serve(listener, router(state.clone(), web))
+                    .with_graceful_shutdown(wait_for_shutdown(shutdown_rx.clone()))
+                    .await
+            },
+            async {
+                axum::serve(gateway, crate::relay::gateway_router(state.clone()))
+                    .with_graceful_shutdown(wait_for_shutdown(shutdown_rx.clone()))
+                    .await
+            }
+        )
+    };
+    tokio::pin!(servers);
+    let result = tokio::select! {
+        result = &mut servers => result,
+        _ = wait_for_shutdown(shutdown_rx.clone()) => {
+            eprintln!("Stopping CloudLab coordinator and workspace gateway...");
+            // Long polls and active gateway requests must not prevent shutdown.
+            match tokio::time::timeout(Duration::from_secs(5), &mut servers).await {
+                Ok(result) => result,
+                Err(_) => {
+                    eprintln!("Shutdown grace period elapsed; closing remaining connections.");
+                    Ok(((), ()))
+                }
+            }
+        }
+    };
+    maintenance.abort();
+    result?;
+    Ok(())
+}
+
+async fn wait_for_shutdown(mut shutdown: watch::Receiver<bool>) {
+    let _ = shutdown.wait_for(|stopping| *stopping).await;
+}
+
+async fn shutdown(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Value>> {
+    // Only the owner key read from disk can stop a standalone server. Browser
+    // sessions, scoped access keys, and agent credentials cannot shut it down.
+    if hash(&bearer(&headers)?) != state.admin_hash {
+        return Err(unauthorized());
+    }
+    state
+        .shutdown
+        .as_ref()
+        .ok_or_else(missing)?
+        .send_replace(true);
+    Ok(Json(json!({"status":"stopping"})))
+}
+
+pub async fn stop(mut bind: SocketAddr, dir: PathBuf) -> anyhow::Result<()> {
+    let token_path = dir.join("admin-token");
+    let owner_key = std::fs::read_to_string(&token_path).with_context(|| {
+        format!(
+            "Cannot read owner key at {}. Use the same --data-dir as cloudlab serve",
+            token_path.display()
+        )
+    })?;
+    let owner_key = owner_key.trim();
+    anyhow::ensure!(
+        owner_key.len() == 64 && owner_key.bytes().all(|byte| byte.is_ascii_hexdigit()),
+        "Invalid admin-token file at {}",
+        token_path.display()
+    );
+    // Wildcard listen addresses are not destinations; contact them locally.
+    if bind.ip().is_unspecified() {
+        bind.set_ip(if bind.is_ipv4() {
+            std::net::Ipv4Addr::LOCALHOST.into()
+        } else {
+            std::net::Ipv6Addr::LOCALHOST.into()
+        });
+    }
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(10))
+        .build()?
+        .post(format!("http://{bind}/api/shutdown"))
+        .header("x-cloudlab-client", "web")
+        .bearer_auth(owner_key)
+        .send()
+        .await
+        .with_context(|| format!("Cannot reach CloudLab at {bind}. Check that it is running and use the same --bind as cloudlab serve"))?;
+    anyhow::ensure!(
+        response.status() != StatusCode::UNAUTHORIZED,
+        "The owner key does not match the running coordinator. Use the same --data-dir as cloudlab serve"
+    );
+    let rejection = if matches!(
+        response.status(),
+        StatusCode::NOT_FOUND | StatusCode::METHOD_NOT_ALLOWED
+    ) {
+        "The running server does not support cloudlab stop yet. Stop its existing serve process once (Ctrl+C in its terminal), then restart serve with the updated binary. Rebuilding alone does not update a running server. If the desktop app owns the server, close the app instead."
+    } else {
+        "The server rejected the CloudLab shutdown request"
+    };
+    let body: Value = response
+        .error_for_status()
+        .context(rejection)?
+        .json()
+        .await
+        .context("The server did not return a CloudLab shutdown response")?;
+    anyhow::ensure!(
+        body["status"] == "stopping",
+        "The server did not acknowledge shutdown"
+    );
+    println!("CloudLab shutdown requested. The coordinator and workspace gateway will stop within 5 seconds; compute containers remain running.");
     Ok(())
 }
 pub async fn start_desktop(dir: PathBuf, mut web: PathBuf) -> anyhow::Result<String> {

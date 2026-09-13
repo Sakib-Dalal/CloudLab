@@ -34,6 +34,16 @@ cargo build --release --locked -p cloudlab
 
 Open **http://127.0.0.1:8088**. Read the owner access key from `.cloudlab/admin-token` on that computer and enter it in the sign-in form. The key is generated on first start and is never printed in service logs. Data is stored in `.cloudlab/state.json`; back up this directory while the coordinator is stopped.
 
+To stop the standalone server, run this in another terminal from the same directory:
+
+```sh
+./target/release/cloudlab stop
+```
+
+If installed on your PATH, use `cloudlab stop`. Pass the same `--bind` and `--data-dir` as `serve` when using custom values (or set `CLOUDLAB_BIND` and `CLOUDLAB_DATA_DIR`). The command reads the local owner key and shuts down the coordinator and workspace gateway within five seconds; agents and compute containers remain running. For a service-managed installation, use its service manager, such as `sudo systemctl stop cloudlab` or `docker compose stop coordinator`, so it stays stopped.
+
+When upgrading from a version without `stop`, stop the existing `serve` process once with Ctrl+C in its terminal, then start `serve` with the updated binary. Rebuilding alone does not update an already-running server; it will return `405 Method Not Allowed` until restarted. Close the desktop app to stop a coordinator it owns.
+
 On each compute device, build the trusted workspace images and install the agent:
 
 ```sh

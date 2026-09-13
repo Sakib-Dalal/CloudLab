@@ -31,6 +31,15 @@ enum Commands {
         #[arg(long, default_value = "dist", env = "CLOUDLAB_WEB_DIR")]
         web_dir: PathBuf,
     },
+    /// Stop a running standalone coordinator and its workspace gateway.
+    Stop {
+        /// Coordinator address used by `serve`.
+        #[arg(long, default_value = "127.0.0.1:8088", env = "CLOUDLAB_BIND")]
+        bind: SocketAddr,
+        /// Data directory containing the running coordinator's owner key.
+        #[arg(long, default_value = ".cloudlab", env = "CLOUDLAB_DATA_DIR")]
+        data_dir: PathBuf,
+    },
     Agent {
         #[arg(long, env = "CLOUDLAB_COORDINATOR")]
         coordinator: String,
@@ -53,6 +62,7 @@ async fn main() -> anyhow::Result<()> {
             data_dir,
             web_dir,
         } => cloudlab::server::serve(bind, app_bind, app_url, public_url, data_dir, web_dir).await,
+        Commands::Stop { bind, data_dir } => cloudlab::server::stop(bind, data_dir).await,
         Commands::Agent {
             coordinator,
             enrollment,

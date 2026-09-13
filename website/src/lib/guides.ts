@@ -186,6 +186,25 @@ export const guides: Guide[] = [
           text(
             "Leave this process running and open http://127.0.0.1:8088 in your browser. The coordinator serves the compiled dashboard on port 8088 and its workspace gateway on port 8089. Both bind to loopback by default.",
           ),
+          text(
+            "To stop the standalone server, run the command below in another terminal from the same directory. It reads your local owner key and stops the coordinator and workspace gateway within five seconds. Agents and compute containers remain running. If you started serve with a custom --bind or --data-dir, pass the same options to stop. For a service-managed installation, stop it through its service manager.",
+          ),
+          text(
+            "If an older running server returns 405 Method Not Allowed, stop its existing serve process once with Ctrl+C in its terminal, then start serve with the updated binary. Rebuilding alone does not update a running server. Close the desktop app to stop a coordinator it owns.",
+          ),
+          {
+            type: "tabs",
+            options: [
+              {
+                label: "macOS / Linux",
+                code: "./target/release/cloudlab stop",
+              },
+              {
+                label: "Windows · PowerShell",
+                code: ".\\target\\release\\cloudlab.exe stop",
+              },
+            ],
+          },
           note(
             "Keep the repository as your working directory",
             "The default web directory is dist/ and the default data directory is .cloudlab/. Starting from a different folder without explicit paths can make CloudLab use different assets or create a separate lab.",
