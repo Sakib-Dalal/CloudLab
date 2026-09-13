@@ -1,0 +1,28 @@
+# Optional DuckDNS gateway. Caddy and CloudLab run on the same computer.
+# Requires a Caddy build with github.com/caddy-dns/duckdns.
+# Load deploy/duckdns.env.example values from a private --envfile.
+{
+	# DNS-01 needs no inbound HTTP port. Visit the HTTPS URL explicitly.
+	auto_https disable_redirects
+}
+
+# One wildcard certificate covers BOTH lab.NAME and w-ID.NAME.
+# DuckDNS shares one TXT record across a registered name's subdomains;
+# do not add separate certificate requests for every workspace or the apex.
+*.{$DUCKDNS_SUBDOMAIN}.duckdns.org {
+	tls {
+		dns duckdns {env.DUCKDNS_API_TOKEN}
+	}
+
+	@coordinator host lab.{$DUCKDNS_SUBDOMAIN}.duckdns.org
+	handle @coordinator {
+		reverse_proxy 127.0.0.1:8088
+	}
+
+	handle {
+		# The CloudLab gateway rejects anything other than a valid w-ID host.
+		reverse_proxy 127.0.0.1:8089
+	}
+
+	# No access log: one-time launch tickets must stay out of request logs.
+}

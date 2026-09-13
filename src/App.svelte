@@ -44,6 +44,8 @@
     Laptop,
   } from "lucide-svelte";
   import { api, APIError } from "./lib/api";
+  import TerminalWorkspace from "./lib/TerminalWorkspace.svelte";
+  import DuckDNSGuide from "./lib/DuckDNSGuide.svelte";
   import { demoData } from "./lib/demo";
   import type { Snapshot, Workspace } from "./lib/types";
 
@@ -80,7 +82,9 @@
       returnFocus = document.activeElement as HTMLElement;
       tick().then(() =>
         dialogElement
-          ?.querySelector<HTMLElement>("input, select, button")
+          ?.querySelector<HTMLElement>(
+            modal === "console" ? "input" : "input, select, button",
+          )
           ?.focus(),
       );
     } else {
@@ -90,8 +94,6 @@
   let secret = $state(""),
     role = $state("operator"),
     activeWorkspace = $state<Workspace | null>(null),
-    command = $state(""),
-    output = $state(""),
     settingsDraft = $state<Snapshot["settings"] | null>(null);
   let clock = $state(Date.now() / 1000),
     showLabMenu = $state(false);
@@ -188,12 +190,20 @@
     if (demo) return;
     try {
       data = await api<Snapshot>("/state");
-      if (activeWorkspace)
+      if (activeWorkspace) {
         activeWorkspace =
           data.workspaces.find((w) => w.id === activeWorkspace?.id) || null;
+        if (!activeWorkspace && modal === "console") {
+          modal = "";
+          notify("This workspace is no longer available.");
+        }
+      }
       error = "";
     } catch (e) {
-      if (e instanceof APIError && e.status === 401) data = null;
+      if (e instanceof APIError && e.status === 401) {
+        data = null;
+        modal = "";
+      }
       error = (e as Error).message;
     } finally {
       loading = false;
@@ -254,8 +264,6 @@
     memory = data?.settings.default_memory_mb || 2048;
     template = "jupyter";
     network = false;
-    output = "";
-    command = "";
   }
   async function copy(text: string) {
     try {
@@ -349,38 +357,6 @@
       busy = false;
     }
   }
-  async function consoleRun() {
-    if (!command.trim() || !activeWorkspace) return;
-    busy = true;
-    const text = command;
-    command = "";
-    output += `\n$ ${text}\n`;
-    try {
-      if (demo) {
-        output +=
-          "This is a preview console. Connect a node to run real commands.\n";
-        return;
-      }
-      const job = await api(`/workspaces/${activeWorkspace.id}/actions`, {
-        action: "exec",
-        command: text,
-      });
-      for (let i = 0; i < 70; i++) {
-        await new Promise((r) => setTimeout(r, 1000));
-        const state = await api(`/jobs/${job.id}`);
-        if (state.status === "done" || state.status === "failed") {
-          output += (state.output || state.error || "(no output)") + "\n";
-          return;
-        }
-      }
-      output +=
-        "The command is still pending. Check node connectivity and Activity.\n";
-    } catch (e) {
-      output += (e as Error).message + "\n";
-    } finally {
-      busy = false;
-    }
-  }
   async function openApp(w: Workspace) {
     if (w.template === "terminal") {
       open("console", w);
@@ -441,7 +417,10 @@
 </script>
 
 <svelte:head
-  ><title>{data ? `${page} · CloudLab` : "Welcome · CloudLab"}</title
+  ><title
+    >{data
+      ? `${modal === "console" && activeWorkspace ? `${activeWorkspace.name} · Terminal` : page} · CloudLab`
+      : "Welcome · CloudLab"}</title
   ></svelte:head
 >
 
@@ -1309,6 +1288,7 @@
 {#if modal}
   <div
     class="modal-backdrop"
+    class:terminal-backdrop={modal === "console"}
     role="presentation"
     onclick={(e) => {
       if (e.target === e.currentTarget && !busy) modal = "";
@@ -1324,7 +1304,9 @@
         ? "New workspace"
         : modal === "node"
           ? "Connect a node"
-          : "Lab dialog"}
+          : modal === "console"
+            ? "CloudLab terminal workspace"
+            : "Lab dialog"}
       tabindex="-1"
       onkeydown={(e) => {
         if (e.key === "Escape" && !busy) modal = "";
@@ -1346,12 +1328,12 @@
         }
       }}
     >
-      <button
-        class="modal-close icon-button"
-        aria-label="Close dialog"
-        onclick={() => (modal = "")}
-        disabled={busy}><X size={21} /></button
-      >
+      {#if modal !== "console"}<button
+          class="modal-close icon-button"
+          aria-label="Close dialog"
+          onclick={() => (modal = "")}
+          disabled={busy}><X size={21} /></button
+        >{/if}
       {#if ["workspace", "lab", "node", "access"].includes(modal)}
         <div class="modal-symbol"><FlaskConical size={25} /></div>
         <div class="eyebrow">{lab?.name || "CLOUDLAB"}</div>
@@ -1625,37 +1607,18 @@
               modal === "revoke-node" ? "nodes" : "access",
             )}>Revoke access</button
         >
-      {:else if modal === "console" && activeWorkspace}<div
-          class="console-title"
-        >
-          <Terminal size={21} />
-          <h2>{activeWorkspace.name}</h2>
-          <span class="badge">Container console</span>
-        </div>
-        <p class="hint">
-          Commands run inside the container as a non-root user. Output is
-          buffered; interactive programs are not supported here. Each command
-          has a 30-second limit.
-        </p>
-        <pre class="terminal-output" aria-live="polite">{output ||
-            "CloudLab container console\nYour host machine is outside this workspace.\n"}</pre>
-        <form
-          class="console-input"
-          onsubmit={(e) => {
-            e.preventDefault();
-            consoleRun();
-          }}
-        >
-          <span>$</span><input
-            aria-label="Container command"
-            bind:value={command}
-            placeholder="pwd"
-            disabled={busy}
-            autocomplete="off"
-          /><button class="primary" disabled={busy || !command.trim()}
-            >{busy ? "Running…" : "Run"}<ArrowRight size={15} /></button
-          >
-        </form>
+      {:else if modal === "console" && activeWorkspace}
+        {#key activeWorkspace.id}<TerminalWorkspace
+            workspace={activeWorkspace}
+            labName={lab?.name || "CloudLab"}
+            nodeName={nodeName(activeWorkspace.node_id)}
+            connected={online.some(
+              (node) => node.id === activeWorkspace?.node_id,
+            )}
+            {demo}
+            onclose={() => (modal = "")}
+            onbusy={(running) => (busy = running)}
+          />{/key}
       {:else if modal === "remote"}<div class="modal-symbol">
           <Globe2 size={25} />
         </div>
@@ -1666,27 +1629,43 @@
         </p>
         <ol class="help-steps">
           <li>
-            <strong>Choose a private VPN or HTTPS gateway.</strong>
+            <strong>Choose a free DuckDNS address.</strong>
             <p>
-              Use WireGuard for private access, or the included Caddy
-              configuration with your own domain.
+              Register a name such as my-cloudlab at DuckDNS. Use
+              lab.my-cloudlab.duckdns.org for your dashboard. Keep your DuckDNS
+              token in a private file on the gateway.
             </p>
           </li>
           <li>
-            <strong>Make the coordinator reachable.</strong>
+            <strong>Keep the IP current and enable HTTPS.</strong>
             <p>
-              Forward HTTPS port 443 to Caddy, or route through a self-hosted
-              gateway if your ISP uses CGNAT.
+              Use the router’s DuckDNS updater or the included five-minute
+              helper. The DuckDNS Caddy configuration renews one wildcard
+              certificate for your dashboard and workspaces.
             </p>
           </li>
           <li>
-            <strong>Pair nodes with that address.</strong>
+            <strong>Set the workspace address and forward HTTPS.</strong>
             <p>
-              Save your HTTPS address in Lab settings. Nodes connect outward; no
-              inbound node ports are needed.
+              Restart the coordinator with the DuckDNS workspace template,
+              keeping its data directory. Forward TCP 443 to Caddy. DuckDNS does
+              not bypass CGNAT; use a reachable gateway or VPN if needed.
+            </p>
+          </li>
+          <li>
+            <strong>Save the public URL and pair nodes.</strong>
+            <p>
+              Save https://lab.my-cloudlab.duckdns.org in Lab settings, then
+              generate pairing commands. Test Jupyter and VS Code from another
+              network.
             </p>
           </li>
         </ol>
+        <DuckDNSGuide />
+        <p class="hint">
+          Already have a domain? You can keep your provider and Caddy setup, or
+          use WireGuard for private access.
+        </p>
         <div class="form-note">
           <LockKeyhole size={17} />The coordinator authenticates every workspace
           connection.

@@ -54,8 +54,8 @@ for (const file of htmlFiles) {
 }
 assert.equal(
   [...pages.keys()].filter((route) => /^\/docs\/.+\/$/.test(route)).length,
-  13,
-  "All 13 guides must be prerendered",
+  14,
+  "All 14 guides must be prerendered",
 );
 assert(
   pages.has("/") &&
@@ -121,5 +121,5 @@ assert(
   "Deployment must validate generated output",
 );
 console.log(
-  `Validated ${pages.size} static pages, 13 guides, ${linksChecked} local links/assets, metadata, sitemap, and deployment boundary.`,
+  `Validated ${pages.size} static pages, 14 guides, ${linksChecked} local links/assets, metadata, sitemap, and deployment boundary.`,
 );

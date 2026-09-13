@@ -169,9 +169,19 @@ def main():
                     parsed = urllib.parse.urlsplit(launch)
                     status, headers, _ = gateway(launch, path=f"/?{parsed.query}")
                     assert status == 303, status
+                    assert headers["location"] == "/_cloudlab/"
+                    assert "SameSite=Lax" in headers["set-cookie"]
+                    assert "HttpOnly" in headers["set-cookie"]
                     cookie = headers["set-cookie"].split(";")[0]
                     assert gateway(launch, path=f"/?{parsed.query}")[0] == 401
                     assert gateway(launch)[0] == 401
+                    shell = gateway(launch, cookie, "/_cloudlab/")
+                    assert shell[0] == 200 and b"CloudLab" in shell[2]
+                    assert shell[1]["x-frame-options"] == "SAMEORIGIN"
+                    info = json.loads(gateway(launch, cookie, "/_cloudlab/workspace.json")[2])
+                    assert info["template"] == template and info["cpus"] == 1
+                    assert info["node"] == "Test node 0"
+                    assert gateway(launch, path="/_cloudlab/workspace.json")[0] == 401
                     app_origin = f"{parsed.scheme}://{parsed.netloc}"
                     if template == "jupyter":
                         def app_ready():

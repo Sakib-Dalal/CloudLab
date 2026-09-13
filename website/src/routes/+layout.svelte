@@ -87,9 +87,9 @@
       <h2>Go deeper</h2>
       <a href="/docs/architecture/">Architecture</a><a href="/docs/security/"
         >Security model</a
-      ><a href="/docs/remote-access/">Remote access</a><a
-        href="/docs/troubleshooting/">Troubleshooting</a
-      >
+      ><a href="/docs/remote-access/">Remote access</a><a href="/docs/duckdns/"
+        >DuckDNS setup</a
+      ><a href="/docs/troubleshooting/">Troubleshooting</a>
     </div>
     <div>
       <h2>In the open</h2>

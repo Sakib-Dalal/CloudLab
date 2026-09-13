@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY index.html vite.config.ts svelte.config.js tsconfig.json ./
 COPY src ./src
+COPY shared ./shared
 COPY public ./public
 RUN npm run build
 

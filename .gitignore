@@ -5,6 +5,7 @@ target/
 .env
 .DS_Store
 *.log
+__pycache__/
 src-tauri/gen/
 .vercel/
 .svelte-kit/

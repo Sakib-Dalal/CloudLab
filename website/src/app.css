@@ -2853,3 +2853,101 @@
     }
   }
 }
+
+.duckdns-banner {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 60px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 48px;
+  background: #f6eee2;
+}
+.duckdns-banner h2 {
+  margin: 14px 0 18px;
+}
+.duckdns-intro {
+  max-width: 440px;
+  line-height: 1.8;
+  color: #7b6b5c;
+  font-size: 15px;
+  margin-bottom: 24px;
+}
+.duckdns-footnote {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #8b7966;
+  margin-top: 14px;
+}
+.duckdns-route {
+  min-width: 0;
+  padding: 26px;
+  background: #fffdf8;
+  border: 1px solid #e7d9c7;
+  border-radius: 14px;
+}
+.duckdns-address {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 12px;
+  border: 1px solid #dfd9cc;
+  background: #f5f3e9;
+  border-radius: 8px;
+  color: #537e70;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.duckdns-address svg {
+  flex-shrink: 0;
+}
+.duckdns-route ol {
+  list-style: none;
+  padding: 0;
+  margin: 26px 0;
+  display: grid;
+  gap: 22px;
+}
+.duckdns-route li {
+  display: flex;
+  gap: 14px;
+}
+.duckdns-route li > span {
+  color: #b08062;
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding-top: 4px;
+}
+.duckdns-route strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+.duckdns-route p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #8b7966;
+  margin-top: 5px;
+}
+.duckdns-route .text-link {
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .duckdns-banner {
+    padding: 32px;
+    gap: 28px;
+  }
+}
+@media (max-width: 700px) {
+  .duckdns-banner {
+    grid-template-columns: 1fr;
+    padding: 25px 20px;
+    border-radius: 16px;
+  }
+  .duckdns-route {
+    padding: 20px 16px;
+  }
+  .duckdns-banner .button {
+    font-size: 12px;
+  }
+}

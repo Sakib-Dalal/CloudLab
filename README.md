@@ -6,7 +6,7 @@ The interface uses `#BF4646`, `#EDDCC6`, `#FFF4EA`, and `#7EACB5`, with locally 
 
 ## Public website and documentation
 
-The public SvelteKit website lives in [`website/`](website/README.md), separately from the private lab dashboard. It includes the product overview, an interactive lab diagram, searchable documentation, 13 step-by-step guides, copyable commands, FAQs, security details, and project information.
+The public SvelteKit website lives in [`website/`](website/README.md), separately from the private lab dashboard. It includes the product overview, an interactive lab diagram, searchable documentation, 14 step-by-step guides, copyable commands, FAQs, security details, and project information.
 
 ```sh
 npm ci --prefix website
@@ -86,6 +86,8 @@ The coordinator has no Docker socket. Compute agents run separately on their dev
 | Persistence | Atomic local metadata writes, persisted operation receipts, bounded activity history, restart recovery |
 | Clients | Responsive Svelte web app and Tauri desktop shell |
 
+**Open workspace** launches JupyterLab and VS Code in a CloudLab window with lab/node details, CPU and memory allocations, connection status, and a full-screen control. The Linux console fills the dashboard window and includes command history, copy/clear output, and full-screen controls. Browser sessions reconnect through the dashboard; an expired link never requires entering the lab key into the container. Existing workspace images do not need rebuilding for the workspace interface.
+
 **Operators share all workspaces in their assigned lab.** Viewers can only inspect status and activity. Use separate labs for separate trust groups. Lab settings are coordinator-wide defaults and policies, not per-user quotas.
 
 ## Isolation and remote connectivity
@@ -94,15 +96,23 @@ Each workspace runs as UID/GID 1000 with a read-only root filesystem, all Linux 
 
 Each browser workspace has its **own origin**, such as `http://w-ID.localhost:8089`, with a separate scoped HttpOnly cookie. The dashboard remains on another origin. Workspace credentials never reach containers. The node verifies Docker ownership labels, then relays to a fixed application port inside the container over an unprivileged Docker exec stream. No workspace ports are published on the host. The gateway supports HTTP and WebSocket traffic; it does not provide arbitrary TCP or host desktop access.
 
-Global access uses your own HTTPS gateway/domain or an HTTPS gateway reachable over WireGuard. All nodes connect outward. There is no third-party rendezvous account, automatic public tunnel, or hosted control plane. Internet access still requires a routable coordinator, port forwarding, or a self-hosted gateway when behind CGNAT. Follow [the remote access guide](docs/remote-access.md).
+Global access can use a free DuckDNS name with automatic IP updates, your own HTTPS gateway/domain or an HTTPS gateway reachable over WireGuard. All nodes connect outward. There is no third-party rendezvous account, automatic public tunnel, or hosted control plane. Internet access still requires a routable coordinator, port forwarding, or a self-hosted gateway when behind CGNAT. Follow [the remote access guide](docs/remote-access.md).
 
 Read [security and operational limits](docs/security.md) before inviting people. Docker containers share the host kernel; they are not virtual machines or a complete boundary against hostile code. Prefer rootless Docker and a dedicated Linux VM for untrusted workloads.
+
+
+### Free remote address with DuckDNS
+
+Use DuckDNS as an alternative to a purchased domain and registrar DNS. One registered name gives you `lab.NAME.duckdns.org` for the dashboard and `w-ID.NAME.duckdns.org` for workspace apps. Caddy handles a single wildcard HTTPS certificate and renewal; the included updater keeps the gateway’s public IPv4 current.
+
+Follow the **[ten-step DuckDNS setup](docs/duckdns.md)** for registration, private token storage, automatic IP updates, the Caddy plugin, HTTPS, router forwarding, node pairing, and troubleshooting. Use [`deploy/Caddyfile.duckdns`](deploy/Caddyfile.duckdns) with [`deploy/duckdns.env.example`](deploy/duckdns.env.example). DuckDNS does not bypass CGNAT; a reachable public gateway or VPN route is still required.
 
 ## Checks
 
 ```sh
 npm run check
 npm run build
+python3 tests/duckdns.py
 cargo fmt --check
 cargo clippy --locked -p cloudlab --all-targets -- -D warnings
 cargo test --locked -p cloudlab

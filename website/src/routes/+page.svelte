@@ -51,7 +51,7 @@
   const faqs = [
     [
       "Is CloudLab free?",
-      "Yes. CloudLab is open source under the MIT license. You run it on your own hardware. Electricity, a domain, or an optional public gateway can still have costs.",
+      "Yes. CloudLab is open source under the MIT license. You run it on your own hardware. Use a free DuckDNS address or bring your own domain. Electricity and an optional public gateway can still have costs.",
     ],
     [
       "Do I need a powerful server?",
@@ -59,7 +59,7 @@
     ],
     [
       "Can I reach my lab away from home?",
-      "Yes, after you configure a reachable HTTPS gateway and workspace subdomains, or an HTTPS gateway over a VPN. CloudLab does not automatically set up NAT traversal, DNS, or a public tunnel.",
+      "Yes. The DuckDNS guide gives you a free address, automatic IP updates, and HTTPS for the dashboard and workspaces. You still need a reachable gateway or VPN; DuckDNS does not bypass CGNAT or create a tunnel.",
     ],
     [
       "Can collaborators access my personal files?",
@@ -176,12 +176,70 @@
         <h3>Your lab goes where you do.</h3>
         <p>
           Use a browser or the desktop app. Set up your own HTTPS gateway to
-          reach your locally hosted lab from another network.
+          reach your locally hosted lab from another network. Choose a free
+          DuckDNS address or use your own domain.
         </p>
         <a class="text-link" href="/docs/remote-access/"
           >Set up remote access<ArrowUpRight size={16} /></a
         >
       </article>
+    </div>
+  </section>
+
+  <section
+    class="section container"
+    id="duckdns"
+    aria-labelledby="duckdns-heading"
+  >
+    <div class="duckdns-banner">
+      <div>
+        <p class="eyebrow">A FREE ADDRESS FOR YOUR HOME LAB</p>
+        <h2 id="duckdns-heading">Your lab.<br />One address to remember.</h2>
+        <p class="duckdns-intro">
+          Give CloudLab a DuckDNS name that follows your changing home IP. Keep
+          your dashboard, notebooks, and editor on your own hardware.
+        </p>
+        <a class="button primary" href="/docs/duckdns/"
+          >Set up DuckDNS, step by step<ArrowUpRight size={17} /></a
+        >
+        <p class="duckdns-footnote">
+          No domain purchase needed. A reachable gateway is still required.
+        </p>
+      </div>
+      <div class="duckdns-route">
+        <span class="duckdns-address"
+          ><LockKeyhole size={16} />lab.my-cloudlab.duckdns.org</span
+        >
+        <ol>
+          <li>
+            <span>01</span>
+            <div>
+              <strong>Choose your free name</strong>
+              <p>Register one DuckDNS hostname for your lab.</p>
+            </div>
+          </li>
+          <li>
+            <span>02</span>
+            <div>
+              <strong>Keep the IP current</strong>
+              <p>Use your router or the included five-minute updater.</p>
+            </div>
+          </li>
+          <li>
+            <span>03</span>
+            <div>
+              <strong>Connect with HTTPS</strong>
+              <p>
+                Let Caddy renew one certificate for your dashboard and
+                workspaces.
+              </p>
+            </div>
+          </li>
+        </ol>
+        <a class="text-link" href="/docs/remote-access/"
+          >Compare other remote-access options<ArrowRight size={15} /></a
+        >
+      </div>
     </div>
   </section>
 
@@ -380,11 +438,11 @@
           <h3>Your first lab</h3>
           <p>From source code to a running workspace, one step at a time.</p>
           <span>10 min read<ArrowUpRight size={20} /></span></a
-        ><a href="/docs/remote-access/"
+        ><a href="/docs/duckdns/"
           ><span class="guide-index">02 / GO FURTHER</span>
-          <h3>Reach it from anywhere</h3>
-          <p>Set up HTTPS, workspace subdomains, and your own gateway.</p>
-          <span>9 min read<ArrowUpRight size={20} /></span></a
+          <h3>A free address with DuckDNS</h3>
+          <p>Ten steps from a hostname to secure access from anywhere.</p>
+          <span>15 min read<ArrowUpRight size={20} /></span></a
         ><a href="/docs/access-and-settings/"
           ><span class="guide-index">03 / MAKE IT YOURS</span>
           <h3>A lab that fits your work</h3>

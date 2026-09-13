@@ -1,20 +1,7 @@
-export type Block =
-  | { type: "text"; text: string }
-  | { type: "list"; items: string[]; ordered?: boolean }
-  | { type: "note"; title: string; text: string }
-  | { type: "code"; code: string; label?: string }
-  | { type: "tabs"; options: { label: string; code: string }[] }
-  | { type: "links"; items: { label: string; href: string }[] }
-  | { type: "table"; columns: string[]; rows: string[][] };
+import { duckdnsGuide } from "../../../shared/duckdns-guide";
+import type { Block, Guide } from "../../../shared/guide-types";
+export type { Block, Guide } from "../../../shared/guide-types";
 
-export type Guide = {
-  slug: string;
-  title: string;
-  description: string;
-  category: string;
-  minutes: number;
-  sections: { id: string; title: string; blocks: Block[] }[];
-};
 const text = (text: string): Block => ({ type: "text", text });
 const list = (...items: string[]): Block => ({ type: "list", items });
 const note = (title: string, text: string): Block => ({
@@ -578,11 +565,28 @@ export const guides: Guide[] = [
           ),
           note(
             "Global access needs network setup",
-            "CloudLab does not automatically create a public tunnel or perform RustDesk-style NAT punching. A domain, TLS certificates, and a reachable gateway or VPN are your responsibility. The public documentation website on Vercel is not that gateway.",
+            "CloudLab does not automatically create a public tunnel or perform RustDesk-style NAT punching. DNS, TLS certificates, and a reachable gateway or VPN are required. DuckDNS is a free option if you do not own a domain. The public documentation website on Vercel is not that gateway.",
           ),
           code(
             "Browser or desktop\n  ├─ https://lab.example.com → coordinator :8088\n  └─ https://w-ID.workspaces.lab.example.com → gateway :8089\n                                     ↑\n                      outbound HTTPS / WSS from node agents\n                                     ↓\n                          isolated Docker workspaces",
             "Connection path",
+          ),
+        ],
+      },
+      {
+        id: "choose-dns",
+        title: "Choose your DNS option",
+        blocks: [
+          note(
+            "Recommended free option: DuckDNS",
+            "Use one free DuckDNS name, automatic IP updates, and a single wildcard HTTPS certificate for the dashboard and workspace apps. It is a good fit for a home connection with a changing IPv4 address; it does not bypass CGNAT.",
+          ),
+          links({
+            label: "Follow the ten-step DuckDNS setup",
+            href: "/docs/duckdns/",
+          }),
+          text(
+            "Already own a domain? Continue with your current DNS provider and the generic configuration below. For private access, use the VPN route at the end of this guide.",
           ),
         ],
       },
@@ -668,6 +672,7 @@ export const guides: Guide[] = [
       },
     ],
   },
+  duckdnsGuide,
   {
     slug: "access-and-settings",
     title: "Access & settings",
@@ -1150,8 +1155,8 @@ export const guides: Guide[] = [
         title: "The dashboard loads, but the workspace does not",
         blocks: [
           list(
-            "Check wildcard DNS for the exact w-ID.workspaces hostname, not only the coordinator hostname.",
-            "Verify the wildcard TLS certificate covers *.workspaces.lab.example.com.",
+            "Check DNS for the exact workspace hostname, not only the dashboard: w-ID.NAME.duckdns.org for DuckDNS, or your configured custom-domain template.",
+            "Verify the wildcard certificate covers *.NAME.duckdns.org for DuckDNS, or *.workspaces.lab.example.com for the generic example.",
             "Set CLOUDLAB_APP_URL at coordinator startup and point the wildcard site to gateway port 8089.",
             "Preserve Host and WebSocket upgrade headers in the proxy.",
             "Reopen the app from the dashboard. A launch ticket is single-use and expires after 60 seconds.",
@@ -1160,10 +1165,16 @@ export const guides: Guide[] = [
           text(
             "The HTTP gateway buffers up to 16 MiB per response. Larger downloads and indefinite HTTP streams are outside the current gateway limits.",
           ),
-          links({
-            label: "Review the remote access checklist",
-            href: "/docs/remote-access/",
-          }),
+          links(
+            {
+              label: "Review the remote access checklist",
+              href: "/docs/remote-access/",
+            },
+            {
+              label: "DuckDNS connection checks",
+              href: "/docs/duckdns/#troubleshooting",
+            },
+          ),
         ],
       },
       {

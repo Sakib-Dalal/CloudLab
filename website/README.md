@@ -1,6 +1,6 @@
 # CloudLab public website
 
-A standalone, prerendered SvelteKit site for the CloudLab product and documentation. Uses the same burgundy, sand, cream, and blue palette as the lab app, with local fonts, responsive layouts, local documentation search, an interactive explanatory lab diagram, copyable commands, OS command selectors, FAQs, and 13 guides.
+A standalone, prerendered SvelteKit site for the CloudLab product and documentation. Uses the same burgundy, sand, cream, and blue palette as the lab app, with local fonts, responsive layouts, local documentation search, an interactive explanatory lab diagram, copyable commands, OS command selectors, FAQs, and 14 guides.
 
 ```sh
 npm ci --prefix website
@@ -36,6 +36,7 @@ The root app's `npm run build` still builds the **private lab dashboard** into `
 ## Editing
 
 - `src/routes/+page.svelte`: product landing page.
+- `../shared/duckdns-guide.ts`: ten-step DuckDNS setup shared with the dashboard, including IP updates, wildcard HTTPS, and troubleshooting.
 - `src/lib/guides.ts`: structured guide content, navigation, and local search.
 - `src/routes/docs/[slug]/`: prerendered article renderer and routing.
 - `src/app.css`: shared responsive visual system.

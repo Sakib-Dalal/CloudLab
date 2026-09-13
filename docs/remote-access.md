@@ -11,6 +11,14 @@ Web / Tauri client ── HTTPS ──┬── lab.example.com → coordinator 
                        Node agents → isolated Docker workspaces
 ```
 
+## Recommended free DNS option: DuckDNS
+
+You can use a free DuckDNS name instead of buying a domain or configuring another registrar’s DNS. The [complete DuckDNS setup](duckdns.md) covers all ten steps: registration, a private token file, automatic IP updates, Caddy with the DuckDNS plugin, one wildcard certificate, the CloudLab origin setting, router forwarding, and end-to-end checks.
+
+With a registered name such as `my-cloudlab`, the dashboard is `https://lab.my-cloudlab.duckdns.org` and workspaces use `https://{workspace}.my-cloudlab.duckdns.org`. The [DuckDNS Caddyfile](../deploy/Caddyfile.duckdns) preserves their separate origins. DuckDNS keeps the name pointed at a changing public IPv4; it does not bypass CGNAT or provide a tunnel.
+
+Already have a domain? Keep your current provider and follow the generic setup below. Choose the VPN option for private access.
+
 ## HTTPS on your own hardware
 
 1. Point `lab.example.com` and `*.workspaces.lab.example.com` DNS at your gateway's public address. The `*` is required because workspace IDs are generated dynamically.

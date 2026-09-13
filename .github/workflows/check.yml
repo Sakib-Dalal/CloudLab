@@ -19,6 +19,7 @@ jobs:
       - run: cargo test --locked -p cloudlab
       - run: cargo build --locked -p cloudlab
       - run: ./scripts/build-images.sh terminal
+      - run: python3 tests/duckdns.py
       - run: python3 tests/integration.py
   desktop:
     runs-on: macos-latest

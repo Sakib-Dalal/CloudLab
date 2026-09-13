@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workspace · CloudLab</title>
+    <link rel="icon" href="/_cloudlab/favicon.svg" />
+    <link rel="stylesheet" href="/_cloudlab/workspace.css" />
+    <script src="/_cloudlab/workspace.js" defer></script>
+  </head>
+  <body>
+    <div class="workspace-shell">
+      <header class="workspace-header">
+        <div class="brand">
+          <img
+            src="/_cloudlab/favicon.svg"
+            alt=""
+            width="30"
+            height="30"
+          /><strong>CloudLab<span>YOUR SPACE TO EXPERIMENT</span></strong>
+        </div>
+        <div class="workspace-heading">
+          <h1 id="workspace-name">Your workspace</h1>
+          <span id="app-name" class="app-label">Connecting</span>
+        </div>
+        <div class="header-actions">
+          <span id="connection" role="status" class="connection"
+            >Connecting…</span
+          ><button
+            id="reload"
+            aria-label="Reload workspace application"
+            type="button"
+            title="Reload workspace application"
+          >
+            ↻ <span>Reload</span></button
+          ><button id="fullscreen" type="button" aria-label="Enter full screen">
+            ⛶ <span>Full screen</span>
+          </button>
+        </div>
+      </header>
+      <div class="workspace-info" aria-label="Workspace information">
+        <div>
+          <span class="info-label">LAB</span><strong id="lab-name">—</strong
+          ><span class="divider"></span><span class="info-label">NODE</span
+          ><strong id="node-name">—</strong>
+        </div>
+        <div>
+          <span id="resources">—</span><span class="divider"></span
+          ><span id="network">Isolated container</span>
+        </div>
+      </div>
+      <div
+        id="connection-alert"
+        class="connection-alert"
+        role="alert"
+        hidden
+      ></div>
+      <main class="app-area">
+        <div id="loading" class="loading-panel" role="status">
+          <img src="/_cloudlab/favicon.svg" alt="" width="44" height="44" />
+          <p class="eyebrow">YOUR CLOUDLAB WORKSPACE</p>
+          <h2 id="loading-title">Connecting to your workspace</h2>
+          <p id="loading-detail">Preparing your tools on your compute node…</p>
+          <button id="retry" type="button" hidden>Try again</button>
+        </div>
+        <iframe
+          id="application"
+          title="CloudLab workspace application"
+          allow="clipboard-read; clipboard-write; fullscreen"
+          hidden
+        ></iframe>
+      </main>
+      <footer class="workspace-footer">
+        <span
+          ><span class="status-dot"></span>CloudLab workspace
+          <span class="footer-detail">· Files persist in /home/lab</span></span
+        ><span id="footer-app">Your hardware. Your workspace.</span>
+      </footer>
+    </div>
+  </body>
+</html>

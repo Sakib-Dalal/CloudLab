@@ -238,8 +238,8 @@ fn app_origin(state: &AppState, id: &str) -> String {
 }
 pub fn gateway_router(state: AppState) -> Router {
     Router::new()
-        .route("/", any(gateway))
-        .route("/{*path}", any(gateway))
+        .route("/", any(gateway_response))
+        .route("/{*path}", any(gateway_response))
         .with_state(state)
 }
 fn gateway_workspace(state: &AppState, headers: &HeaderMap) -> Result<String> {
@@ -301,11 +301,25 @@ async fn gateway(
     let ws = ws.ok();
     let workspace = gateway_workspace(&state, &headers)?;
     let origin = app_origin(&state, &workspace);
-    let ticket = req.uri().query().and_then(|query| {
-        url::form_urlencoded::parse(query.as_bytes())
-            .find(|(k, _)| k == "ticket")
-            .map(|(_, v)| v.into_owned())
-    });
+    if matches!(
+        *req.method(),
+        axum::http::Method::GET | axum::http::Method::HEAD
+    ) {
+        if let Some(response) = crate::workspace_ui::asset(req.uri().path()) {
+            return Ok(response);
+        }
+    }
+    // Only the launch endpoint consumes CloudLab tickets. App routes may use
+    // their own query parameters with the same name.
+    let ticket = req
+        .uri()
+        .query()
+        .filter(|_| req.uri().path() == "/")
+        .and_then(|query| {
+            url::form_urlencoded::parse(query.as_bytes())
+                .find(|(k, _)| k == "ticket")
+                .map(|(_, v)| v.into_owned())
+        });
     if let Some(ticket) = ticket {
         if req.method() != axum::http::Method::GET {
             return Err(forbidden());
@@ -340,13 +354,16 @@ async fn gateway(
             ticket: false,
         });
         s.save()?;
-        let mut r = Redirect::to("/").into_response();
+        let mut r = Redirect::to("/_cloudlab/").into_response();
         r.headers_mut().insert(
             "set-cookie",
             HeaderValue::from_str(&format!(
-                "{}={new}; Path=/; HttpOnly; SameSite=Strict; Max-Age={}{}",
+                // A launch starts on the coordinator's different site. Lax
+                // allows the cookie on this top-level GET redirect. Mutations
+                // and WebSockets still require the exact workspace Origin.
+                "{}={new}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}{}",
                 app_cookie_name(&state),
-                expiry - now(),
+                expiry.saturating_sub(now()),
                 if origin.starts_with("https:") {
                     "; Secure"
                 } else {
@@ -372,9 +389,36 @@ async fn gateway(
             .find(|w| w.id == workspace && w.status == "running")
             .ok_or_else(missing)?;
     w.last_used = now();
+    let w = w.clone();
     let node = w.node_id.clone();
-    if !s.db.nodes.iter().any(|n| n.id == node && !n.revoked) {
-        return Err(forbidden());
+    let n =
+        s.db.nodes
+            .iter()
+            .find(|n| n.id == node && !n.revoked)
+            .ok_or_else(forbidden)?;
+    if req.uri().path().starts_with("/_cloudlab/") {
+        if !matches!(
+            *req.method(),
+            axum::http::Method::GET | axum::http::Method::HEAD
+        ) {
+            return Err(forbidden());
+        }
+        let response = match req.uri().path() {
+            "/_cloudlab/" => crate::workspace_ui::shell(),
+            "/_cloudlab/workspace.json" => {
+                let lab = s.db.labs.iter().find(|l| l.id == w.lab_id);
+                crate::workspace_ui::metadata(
+                    &w,
+                    &n.name,
+                    lab.map(|l| l.name.as_str()).unwrap_or("CloudLab"),
+                )
+            }
+            _ => return Err(missing()),
+        };
+        drop(s);
+        // Metadata doubles as a connection check for an already-open shell.
+        state.relay.sender(&node).await?;
+        return Ok(response);
     }
     drop(s);
     let request_origin = headers.get("origin").and_then(|h| h.to_str().ok());
@@ -510,8 +554,11 @@ async fn gateway(
             );
             response.headers_mut().insert(
                 "content-security-policy",
-                HeaderValue::from_static("frame-ancestors 'none'"),
+                HeaderValue::from_static("frame-ancestors 'self'"),
             );
+            response
+                .headers_mut()
+                .insert("x-frame-options", HeaderValue::from_static("SAMEORIGIN"));
             response
                 .headers_mut()
                 .insert("cache-control", HeaderValue::from_static("no-store"));
@@ -519,6 +566,25 @@ async fn gateway(
         } else {
             Err(bad("Invalid node response"))
         }
+    }
+}
+async fn gateway_response(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    ws: std::result::Result<
+        WebSocketUpgrade,
+        axum::extract::ws::rejection::WebSocketUpgradeRejection,
+    >,
+    req: Request,
+) -> Response {
+    let html = headers
+        .get("accept")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.contains("text/html"));
+    match gateway(State(state), headers, ws, req).await {
+        Ok(response) => response,
+        Err(error) if html => crate::workspace_ui::error(error),
+        Err(error) => error.into_response(),
     }
 }
 fn forward_headers(headers: &HeaderMap, websocket: bool) -> Vec<(String, String)> {
@@ -553,6 +619,7 @@ fn safe_response_header(key: &str, value: &str) -> bool {
             | "transfer-encoding"
             | "content-length"
             | "content-security-policy"
+            | "x-frame-options"
             | "clear-site-data"
             | "access-control-allow-origin"
             | "access-control-allow-credentials"
@@ -749,6 +816,285 @@ async fn agent_request(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tower::ServiceExt;
+
+    async fn fixture() -> (
+        tempfile::TempDir,
+        AppState,
+        String,
+        Actor,
+        mpsc::Receiver<Envelope>,
+    ) {
+        let dir = tempfile::tempdir().unwrap();
+        let state = create_state(
+            dir.path().into(),
+            "http://{workspace}.localhost:8089".into(),
+        )
+        .await
+        .unwrap();
+        let workspace = id();
+        let node = id();
+        let actor = Actor {
+            role: "operator".into(),
+            lab_id: Some("lab".into()),
+            session_hash: hash("parent"),
+        };
+        {
+            let mut store = state.store.lock().await;
+            store.db.access.push(Access {
+                id: "access".into(),
+                lab_id: "lab".into(),
+                name: "Operator".into(),
+                role: "operator".into(),
+                expires_at: now() + 3600,
+                token_hash: hash("key"),
+            });
+            store.db.sessions.push(Session {
+                token_hash: actor.session_hash.clone(),
+                access_id: Some("access".into()),
+                expires_at: now() + 3600,
+            });
+            store.db.workspaces.push(Workspace {
+                id: workspace.clone(),
+                lab_id: "lab".into(),
+                node_id: node.clone(),
+                name: "Notebook <test>".into(),
+                template: "jupyter".into(),
+                cpus: 1,
+                memory_mb: 1024,
+                status: "running".into(),
+                created_at: now(),
+                last_used: now(),
+                error: String::new(),
+                network: false,
+            });
+            store.db.nodes.push(Node {
+                id: node.clone(),
+                lab_id: "lab".into(),
+                name: "Test node".into(),
+                platform: "Linux".into(),
+                arch: "arm64".into(),
+                cpus: 4,
+                memory_mb: 8192,
+                cpu_usage: 0.,
+                memory_used_mb: 0,
+                last_seen: now(),
+                docker: true,
+                revoked: false,
+                credential_hash: hash("node-secret"),
+            });
+        }
+        let (tx, rx) = mpsc::channel(8);
+        state.relay.peers.lock().await.insert(node, (id(), tx));
+        (dir, state, workspace, actor, rx)
+    }
+    async fn launch(state: &AppState, workspace: &str, actor: Actor) -> String {
+        let Json(result) = open_workspace(
+            State(state.clone()),
+            Extension(actor),
+            Path(workspace.into()),
+        )
+        .await
+        .unwrap();
+        let url = url::Url::parse(result["url"].as_str().unwrap()).unwrap();
+        format!("/?{}", url.query().unwrap())
+    }
+    async fn request(
+        state: &AppState,
+        workspace: &str,
+        path: &str,
+        cookie: &str,
+        method: &str,
+        origin: Option<&str>,
+        html: bool,
+    ) -> Response {
+        let mut req = Request::builder()
+            .uri(path)
+            .method(method)
+            .header("host", format!("w-{workspace}.localhost:8089"))
+            .header("cookie", cookie);
+        if let Some(origin) = origin {
+            req = req.header("origin", origin);
+        }
+        if html {
+            req = req.header("accept", "text/html");
+        }
+        gateway_router(state.clone())
+            .oneshot(req.body(Body::empty()).unwrap())
+            .await
+            .unwrap()
+    }
+    #[tokio::test]
+    async fn launch_cookie_survives_cross_site_navigation_and_is_scoped() {
+        let (_dir, state, workspace, actor, _rx) = fixture().await;
+        let path = launch(&state, &workspace, actor).await;
+        let response = request(&state, &workspace, &path, "", "GET", None, false).await;
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(response.headers()["location"], "/_cloudlab/");
+        let cookie = response.headers()["set-cookie"].to_str().unwrap();
+        assert!(cookie.contains("Path=/; HttpOnly; SameSite=Lax"));
+        assert!(!cookie.contains("Domain="));
+        let cookie = cookie.split(';').next().unwrap();
+        assert_eq!(
+            request(&state, &workspace, &path, "", "GET", None, false)
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+        let shell = request(&state, &workspace, "/_cloudlab/", cookie, "GET", None, true).await;
+        assert_eq!(shell.status(), StatusCode::OK);
+        assert_eq!(shell.headers()["x-frame-options"], "SAMEORIGIN");
+        let body = to_bytes(shell.into_body(), MAX_BODY).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("CloudLab"));
+        let metadata = request(
+            &state,
+            &workspace,
+            "/_cloudlab/workspace.json",
+            cookie,
+            "GET",
+            None,
+            false,
+        )
+        .await;
+        let body = to_bytes(metadata.into_body(), MAX_BODY).await.unwrap();
+        let info: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(info["name"], "Notebook <test>");
+        assert_eq!(info["node"], "Test node");
+        assert!(!String::from_utf8_lossy(&body).contains("secret"));
+        assert_eq!(
+            request(&state, &id(), "/_cloudlab/", cookie, "GET", None, false)
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+        for origin in [None, Some("http://evil.example")] {
+            assert_eq!(
+                request(
+                    &state,
+                    &workspace,
+                    "/api/contents",
+                    cookie,
+                    "POST",
+                    origin,
+                    false
+                )
+                .await
+                .status(),
+                StatusCode::FORBIDDEN
+            );
+        }
+        state.store.lock().await.db.access.clear();
+        assert_eq!(
+            request(
+                &state,
+                &workspace,
+                "/_cloudlab/workspace.json",
+                cookie,
+                "GET",
+                None,
+                false
+            )
+            .await
+            .status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+    #[tokio::test]
+    async fn launch_rejects_expired_tickets_and_revoked_parent_sessions() {
+        let (_dir, state, workspace, actor, _rx) = fixture().await;
+        let path = launch(&state, &workspace, actor.clone()).await;
+        state.store.lock().await.db.app_sessions[0].expires_at = now() - 1;
+        assert_eq!(
+            request(&state, &workspace, &path, "", "GET", None, false)
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+        let path = launch(&state, &workspace, actor).await;
+        state.store.lock().await.db.sessions.clear();
+        assert_eq!(
+            request(&state, &workspace, &path, "", "GET", None, false)
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+    #[tokio::test]
+    async fn https_launch_keeps_host_only_secure_cookie() {
+        let (_dir, mut state, workspace, actor, _rx) = fixture().await;
+        state.app_url = "https://{workspace}.apps.example.com".into();
+        let path = launch(&state, &workspace, actor).await;
+        let request = Request::builder()
+            .uri(path)
+            .header("host", format!("w-{workspace}.apps.example.com"))
+            .body(Body::empty())
+            .unwrap();
+        let response = gateway_router(state).oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::SEE_OTHER);
+        let cookie = response.headers()["set-cookie"].to_str().unwrap();
+        assert!(cookie.starts_with("__Host-cloudlab_app="));
+        assert!(cookie.contains("HttpOnly; SameSite=Lax"));
+        assert!(cookie.ends_with("; Secure"));
+        assert!(!cookie.contains("Domain="));
+    }
+    #[tokio::test]
+    async fn stopped_workspaces_and_offline_nodes_do_not_report_connected() {
+        let (_dir, state, workspace, actor, _rx) = fixture().await;
+        let path = launch(&state, &workspace, actor).await;
+        let response = request(&state, &workspace, &path, "", "GET", None, false).await;
+        let cookie = response.headers()["set-cookie"]
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap();
+        state.relay.peers.lock().await.clear();
+        assert_eq!(
+            request(
+                &state,
+                &workspace,
+                "/_cloudlab/workspace.json",
+                cookie,
+                "GET",
+                None,
+                false
+            )
+            .await
+            .status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        state.store.lock().await.db.workspaces[0].status = "stopped".into();
+        assert_eq!(
+            request(
+                &state,
+                &workspace,
+                "/_cloudlab/workspace.json",
+                cookie,
+                "GET",
+                None,
+                false
+            )
+            .await
+            .status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+    #[tokio::test]
+    async fn gateway_errors_are_branded_for_documents_and_json_for_apis() {
+        let (_dir, state, workspace, _actor, _rx) = fixture().await;
+        let response = request(&state, &workspace, "/", "", "GET", None, true).await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert!(response.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .contains("text/html"));
+        let body = to_bytes(response.into_body(), MAX_BODY).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("Open this workspace from CloudLab"));
+        assert!(!String::from_utf8_lossy(&body).contains("Enter a valid lab access key"));
+        let response = request(&state, &workspace, "/api/status", "", "GET", None, false).await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(response.headers()["content-type"], "application/json");
+    }
     #[test]
     fn container_cannot_set_auth_or_parent_cookies() {
         assert!(!safe_response_header(
