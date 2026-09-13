@@ -111,7 +111,11 @@ def main():
                 node = wait_for(lambda: next((n for n in api.call("/state")["nodes"] if n["lab_id"] == lab_id and n["docker"]), None))
                 node_ids.append(node["id"])
                 api.call("/agent/enroll", {"token": enrollment, "platform": "Linux", "arch": "x86_64", "cpus": 1, "memory_mb": 512}, expected=401)
-            print("PASS two real enrolled agents and single-use pairing", flush=True)
+            telemetry = wait_for(lambda: next((n for n in api.call("/state")["nodes"] if n["id"] == node_ids[0] and n.get("metrics") and n.get("history")), None))
+            assert 0 <= telemetry["metrics"]["cpu_usage"] <= 100
+            assert telemetry["metrics"]["memory_total_mb"] == telemetry["memory_mb"]
+            assert "credential_hash" not in telemetry
+            print("PASS two real enrolled agents, pairing, node telemetry and history", flush=True)
 
             viewer_token = api.call("/access", {"lab_id": lab, "name": "Viewer", "role": "viewer"})["token"]
             viewer = API(origin)
@@ -123,6 +127,7 @@ def main():
             viewer.call("/workspaces", config, expected=403)
             api.call("/workspaces", dict(config, template="arbitrary/image"), expected=400)
             api.call("/workspaces", dict(config, cpus=9999), expected=400)
+            api.call("/workspaces", dict(config, gpu_ids=["/dev/mem"]), expected=400)
             api.call("/workspaces", dict(config, network=True), expected=400)
             operator_token = api.call("/access", {"lab_id": lab, "name": "Operator", "role": "operator"})["token"]
             operator = API(origin)
@@ -142,6 +147,12 @@ def main():
 
             wid = operator.call("/workspaces", config)["id"]
             wait_for(lambda: workspace_status(wid, "running"))
+            measured = wait_for(lambda: next((w for w in api.call("/state")["workspaces"] if w["id"] == wid and w.get("metrics") and w.get("history")), None))
+            assert 0 <= measured["metrics"]["cpu_usage"] <= 100
+            assert measured["metrics"]["memory_total_mb"] == 512
+            assert measured["metrics"]["pids"] > 0
+            assert measured["metrics"]["gpus"] == []
+            print("PASS real Docker CPU, memory, process and I/O telemetry", flush=True)
             info = json.loads(docker("inspect", f"cloudlab-{wid}"))[0]
             host = info["HostConfig"]
             assert host["ReadonlyRootfs"] and host["Privileged"] is False
@@ -181,6 +192,12 @@ def main():
                     info = json.loads(gateway(launch, cookie, "/_cloudlab/workspace.json")[2])
                     assert info["template"] == template and info["cpus"] == 1
                     assert info["node"] == "Test node 0"
+                    assert info["status"] == "running" and info["node_online"]
+                    assert b"metric-charts" in shell[2]
+                    assert "metrics" in info and "history" in info
+                    assert info["gpus"] == [] and "credential_hash" not in info
+                    measured_info = wait_for(lambda: (v if v.get("metrics") else None) if (v := json.loads(gateway(launch, cookie, "/_cloudlab/workspace.json")[2])) else None)
+                    assert measured_info["metrics"]["memory_total_mb"] == 1024
                     assert gateway(launch, path="/_cloudlab/workspace.json")[0] == 401
                     app_origin = f"{parsed.scheme}://{parsed.netloc}"
                     if template == "jupyter":

@@ -12,7 +12,7 @@ CloudLab is intended for a personal lab or a small group of trusted collaborator
 
 ## Container policy
 
-`sandbox.rs` constructs all Docker arguments. API callers cannot choose host paths, privileged mode, capabilities, host namespaces, ports, devices, or arbitrary images. The node independently rejects unknown templates, malformed IDs, invalid budgets, and unauthorized outbound networking. User shell strings are passed as a single argument **after** `docker exec … timeout … sh -lc`; they are never evaluated by a host shell.
+`sandbox.rs` constructs all Docker arguments. API callers cannot choose host paths, privileged mode, capabilities, host namespaces, ports, arbitrary devices, or arbitrary images. The optional GPU selector accepts only GPU identifiers discovered on that node. The agent discovers devices again before creation, allows NVIDIA UUID requests or specific Linux render devices (and AMD’s compute device when present), and adds the required device groups without granting privileged mode. The node independently rejects unknown templates, malformed IDs, invalid budgets, and unauthorized outbound networking. User shell strings are passed as a single argument **after** `docker exec … timeout … sh -lc`; they are never evaluated by a host shell.
 
 By default, each workspace uses Docker’s `none` network driver: its private network namespace contains only loopback, with no route to the host, LAN, or internet. The application relay enters the container through a fixed, non-root exec stream. An outbound-enabled workspace gets its own Docker bridge network. Enabling outbound access requires both the coordinator's setting and `--allow-network` on the node. Outbound mode also makes reachable LAN services accessible: there is no per-destination egress firewall. Do not enable it for untrusted lab members.
 
@@ -28,6 +28,7 @@ There is a basic global sign-in limit of 30 attempts per minute. It is intention
 
 ## Resource and lifecycle limits
 
+- Optional GPUs are reserved to a workspace, including while stopped, until removal. Reservations prevent another CloudLab workspace from choosing the same device; they do not isolate it from host applications, enforce a GPU memory quota, or make GPU drivers a secure boundary against hostile code. GPU telemetry is device-wide.
 - CPU and memory are reserved across all workspaces assigned to a node, including stopped workspaces. Removal releases the reservation. The agent applies Docker CPU, RAM, swap, PID, and log limits.
 - Docker volume disk use has **no quota**. Monitor free disk space and use filesystem/Docker storage quotas externally. Volume data is retained when a container is removed; deletion is an explicit local administrator operation.
 - HTTP requests/responses and WebSocket messages are limited to 16 MiB. Use application chunked uploads or transfer files through a controlled local administrator workflow for larger files. HTTP responses are buffered; SSE and indefinite HTTP streaming are not supported. WebSockets are streamed.
@@ -46,3 +47,7 @@ To rotate the owner key, stop the coordinator, replace `admin-token` with a new 
 Persistent work lives in `cloudlab-WORKSPACE_ID-home` volumes. To recover a removed workspace, mount that specific volume in a trusted administrative container. CloudLab never automatically mounts a host home directory or imports old host credentials.
 
 References: [Docker Engine security](https://docs.docker.com/engine/security/), [rootless Docker](https://docs.docker.com/engine/security/rootless/), [Docker run resource and security options](https://docs.docker.com/reference/cli/docker/container/run/), and [code-server proxy guidance](https://coder.com/docs/code-server/guide).
+
+## Cloud VM setup
+
+The opt-in cloud installer uses a host compute service with Docker group access on a dedicated Linux VM. Its coordinator container has no Docker socket. Public IP HTTP traffic only redirects to a configured HTTPS dashboard. A startup-managed public URL controls Caddy’s certificate allowlist; changing a saved Settings URL cannot expand it. The `/api/tls/allow` endpoint performs no network requests, is disabled by default, authorizes only the dashboard and registered browser workspace origins, and is blocked by the generated public gateway. Workspace origins and scoped sessions remain separate from the coordinator. See [cloud deployment](cloud-access.md) for DNS dependencies and operational limits.

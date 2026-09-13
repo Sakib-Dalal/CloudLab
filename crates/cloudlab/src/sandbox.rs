@@ -12,14 +12,22 @@ pub fn container_name(id: &str) -> anyhow::Result<String> {
     Ok(format!("cloudlab-{id}"))
 }
 pub async fn docker(args: &[String], seconds: u64) -> anyhow::Result<String> {
-    let mut child = Command::new("docker")
+    host_command("docker", args, seconds).await
+}
+// Only fixed executable names and structured arguments from trusted collectors.
+pub(crate) async fn host_command(
+    program: &str,
+    args: &[String],
+    seconds: u64,
+) -> anyhow::Result<String> {
+    let mut child = Command::new(program)
         .args(args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .context("Docker is not installed or is not on PATH")?;
+        .with_context(|| format!("{program} is not installed or is not on PATH"))?;
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
     async fn drain<R: tokio::io::AsyncRead + Unpin>(mut reader: R) -> std::io::Result<Vec<u8>> {
@@ -76,7 +84,12 @@ pub async fn available() -> bool {
         .await
         .is_ok()
 }
-pub fn run_args(w: &Workspace, node: &str, allow_network: bool) -> anyhow::Result<Vec<String>> {
+pub fn run_args(
+    w: &Workspace,
+    node: &str,
+    allow_network: bool,
+    gpus: &[crate::model::Gpu],
+) -> anyhow::Result<Vec<String>> {
     anyhow::ensure!(valid_id(node) && valid_id(&w.id), "Invalid resource ID");
     anyhow::ensure!(
         w.cpus > 0 && w.cpus <= 256 && (256..=1048576).contains(&w.memory_mb),
@@ -133,6 +146,7 @@ pub fn run_args(w: &Workspace, node: &str, allow_network: bool) -> anyhow::Resul
         "--log-opt=max-size=10m",
         "--log-opt=max-file=2",
     ]);
+    args.extend(gpu_args(&w.gpu_ids, gpus)?);
     args.push(image.into());
     match w.template.as_str() {
         "terminal" => args.extend(strings(&["sleep", "infinity"])),
@@ -158,6 +172,74 @@ pub fn run_args(w: &Workspace, node: &str, allow_network: bool) -> anyhow::Resul
         ])),
         _ => unreachable!(),
     };
+    Ok(args)
+}
+/// Resolve only identifiers discovered on this host; client input cannot supply device paths.
+fn gpu_args(ids: &[String], gpus: &[crate::model::Gpu]) -> anyhow::Result<Vec<String>> {
+    anyhow::ensure!(
+        ids.len() <= 8 && ids.iter().collect::<std::collections::HashSet<_>>().len() == ids.len(),
+        "Choose up to eight distinct GPUs"
+    );
+    let mut args = Vec::new();
+    let mut nvidia = Vec::new();
+    let mut amd = false;
+    for id in ids {
+        let gpu = gpus
+            .iter()
+            .find(|g| &g.id == id)
+            .context("Requested GPU is no longer detected on this node")?;
+        match gpu.access.as_str() {
+            "nvidia" => {
+                anyhow::ensure!(
+                    id.starts_with("GPU-")
+                        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'),
+                    "Invalid NVIDIA GPU ID"
+                );
+                nvidia.push(id.as_str());
+            }
+            "dri" => {
+                anyhow::ensure!(
+                    id.strip_prefix("renderD")
+                        .is_some_and(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_digit())),
+                    "Invalid render device"
+                );
+                let path = format!("/dev/dri/{id}");
+                args.push(format!("--device={path}"));
+                #[cfg(target_os = "linux")]
+                {
+                    use std::os::unix::fs::{FileTypeExt, MetadataExt};
+                    let metadata =
+                        std::fs::metadata(&path).context("GPU render device is missing")?;
+                    anyhow::ensure!(
+                        metadata.file_type().is_char_device(),
+                        "Invalid GPU render device"
+                    );
+                    args.push(format!("--group-add={}", metadata.gid()));
+                }
+                amd |= gpu.vendor == "AMD";
+            }
+            _ => bail!("This GPU cannot be passed to a workspace on this platform"),
+        }
+    }
+    if !nvidia.is_empty() {
+        // Docker parses --gpus as CSV; quote a list of device identifiers as one field.
+        args.extend(strings(&[
+            "--gpus",
+            &format!("\"device={}\"", nvidia.join(",")),
+        ]));
+    }
+    if amd {
+        #[cfg(target_os = "linux")]
+        if let Ok(metadata) = std::fs::metadata("/dev/kfd") {
+            use std::os::unix::fs::{FileTypeExt, MetadataExt};
+            anyhow::ensure!(
+                metadata.file_type().is_char_device(),
+                "Invalid AMD compute device"
+            );
+            args.push("--device=/dev/kfd".into());
+            args.push(format!("--group-add={}", metadata.gid()));
+        }
+    }
     Ok(args)
 }
 async fn inspect(id: &str, node: &str) -> anyhow::Result<Value> {
@@ -317,7 +399,12 @@ async fn execute_inner(
     let name = container_name(&w.id)?;
     anyhow::ensure!(valid_id(node), "Invalid node ID");
     if action == "create" {
-        let args = run_args(w, node, allow_network)?;
+        let gpus = if w.gpu_ids.is_empty() {
+            Vec::new()
+        } else {
+            crate::telemetry::gpus().await
+        };
+        let args = run_args(w, node, allow_network, &gpus)?;
         if let Ok(existing) = inspect(&w.id, node).await {
             if existing["State"]["Running"] == true {
                 return Ok("Container is already running".into());
@@ -426,12 +513,15 @@ mod tests {
             last_used: 0,
             error: "".into(),
             network: false,
+            gpu_ids: Vec::new(),
+            metrics: None,
+            history: Vec::new(),
         }
     }
     #[test]
     fn sandbox_enforces_boundaries() {
         let w = workspace();
-        let args = run_args(&w, &w.node_id, false).unwrap();
+        let args = run_args(&w, &w.node_id, false, &[]).unwrap();
         for flag in [
             "--read-only",
             "--cap-drop=ALL",
@@ -447,15 +537,61 @@ mod tests {
             .any(|v| v.contains("docker.sock") || v == "--privileged" || v.contains("type=bind")));
     }
     #[test]
+    fn gpu_devices_require_discovery_and_safe_identifiers() {
+        use crate::model::Gpu;
+        let gpu = Gpu {
+            id: "GPU-abc-123".into(),
+            access: "nvidia".into(),
+            ..Default::default()
+        };
+        let ids = vec![gpu.id.clone()];
+        assert!(gpu_args(&ids, &[]).is_err());
+        assert_eq!(
+            gpu_args(&ids, std::slice::from_ref(&gpu)).unwrap(),
+            vec!["--gpus", "\"device=GPU-abc-123\""]
+        );
+        let mut w = workspace();
+        w.gpu_ids = ids.clone();
+        let args = run_args(&w, &w.node_id, false, std::slice::from_ref(&gpu)).unwrap();
+        assert!(
+            args.iter().position(|v| v == "--gpus").unwrap()
+                < args
+                    .iter()
+                    .position(|v| v == "cloudlab/terminal:2")
+                    .unwrap()
+        );
+        assert!(gpu_args(
+            &[gpu.id.clone(), gpu.id.clone()],
+            std::slice::from_ref(&gpu)
+        )
+        .is_err());
+        for (id, access) in [
+            ("GPU-123,all", "nvidia"),
+            ("../../mem", "dri"),
+            ("renderD128/../../mem", "dri"),
+            ("mac-Apple", "none"),
+        ] {
+            assert!(gpu_args(
+                &[id.into()],
+                &[Gpu {
+                    id: id.into(),
+                    access: access.into(),
+                    ..Default::default()
+                }]
+            )
+            .is_err());
+        }
+    }
+    #[test]
     fn rejects_arbitrary_images_ids_and_network() {
         let mut w = workspace();
         w.template = "alpine; touch /tmp/bad".into();
-        assert!(run_args(&w, &w.node_id, false).is_err());
+        assert!(run_args(&w, &w.node_id, false, &[]).is_err());
         w.template = "terminal".into();
         w.network = true;
-        assert!(run_args(&w, &w.node_id, false).is_err());
+        assert!(run_args(&w, &w.node_id, false, &[]).is_err());
         w.network = false;
         w.id = "../../etc".into();
-        assert!(run_args(&w, &w.node_id, false).is_err());
+        assert!(run_args(&w, &w.node_id, false, &[]).is_err());
     }
 }

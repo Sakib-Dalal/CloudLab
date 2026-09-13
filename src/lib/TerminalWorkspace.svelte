@@ -15,10 +15,13 @@
     ShieldCheck,
   } from "lucide-svelte";
   import { api } from "./api";
-  import type { Workspace } from "./types";
+  import WorkspaceMetrics from "./WorkspaceMetrics.svelte";
+  import type { Workspace, Node } from "./types";
 
   let {
     workspace,
+    node,
+    clock,
     labName,
     nodeName,
     connected,
@@ -27,6 +30,8 @@
     onbusy,
   }: {
     workspace: Workspace;
+    node?: Node;
+    clock: number;
     labName: string;
     nodeName: string;
     connected: boolean;
@@ -208,6 +213,7 @@
       />{workspace.network ? "Internet enabled" : "Isolated network"}
     </div>
   </div>
+  <WorkspaceMetrics {workspace} {node} {clock} {connected} />
   <div class="terminal-body">
     <div class="terminal-toolbar">
       <span

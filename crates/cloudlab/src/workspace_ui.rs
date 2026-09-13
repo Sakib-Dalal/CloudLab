@@ -1,6 +1,9 @@
 //! Small, self-contained workspace chrome served on the container's own origin.
 //! It has no coordinator privileges and never needs the lab access key.
-use crate::{model::Workspace, server::ApiError};
+use crate::{
+    model::{now, Node, Workspace},
+    server::ApiError,
+};
 use axum::{
     http::{HeaderValue, StatusCode},
     response::{Html, IntoResponse, Response},
@@ -38,12 +41,17 @@ pub fn asset(path: &str) -> Option<Response> {
 pub fn shell() -> Response {
     headers(Html(include_str!("../assets/workspace.html")).into_response())
 }
-pub fn metadata(w: &Workspace, node: &str, lab: &str) -> Response {
+pub fn metadata(w: &Workspace, node: &Node, lab: &str) -> Response {
     headers(
         Json(json!({
             "name": w.name, "template": w.template, "cpus": w.cpus,
             "memory_mb": w.memory_mb, "network": w.network,
-            "node": node, "lab": lab, "path": if w.template == "jupyter" { "/lab" } else { "/" }
+            "node": node.name, "lab": lab,
+            "status": w.status, "node_online": node.last_seen + 45 > now(),
+            "metrics": w.metrics, "history": w.history, "gpu_ids": w.gpu_ids,
+            "gpu_history": node.history.iter().map(|m| json!({"at": m.at, "gpus": m.gpus.iter().filter(|g| w.gpu_ids.contains(&g.id)).collect::<Vec<_>>()})).collect::<Vec<_>>(),
+            "node_metrics_at": node.metrics.as_ref().map(|m| m.at),
+            "gpus": node.gpus.iter().filter(|g| w.gpu_ids.contains(&g.id)).collect::<Vec<_>>(), "path": if w.template == "jupyter" { "/lab" } else { "/" }
         }))
         .into_response(),
     )

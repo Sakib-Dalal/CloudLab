@@ -44,9 +44,12 @@
     Laptop,
   } from "lucide-svelte";
   import { api, APIError } from "./lib/api";
+  import AnalyticsDashboard from "./lib/AnalyticsDashboard.svelte";
+  import WorkspaceMetrics from "./lib/WorkspaceMetrics.svelte";
+  import { fresh } from "./lib/metrics";
   import TerminalWorkspace from "./lib/TerminalWorkspace.svelte";
-  import DuckDNSGuide from "./lib/DuckDNSGuide.svelte";
-  import { demoData } from "./lib/demo";
+  import CloudAccessGuide from "./lib/CloudAccessGuide.svelte";
+  import { demoData, advanceDemo } from "./lib/demo";
   import type { Snapshot, Workspace } from "./lib/types";
 
   const initialDemo = new URLSearchParams(location.search).has("demo");
@@ -59,7 +62,14 @@
     error = $state(""),
     toast = $state(""),
     busy = $state(false);
-  let page = $state("Overview"),
+  const requestedView = new URLSearchParams(location.search).get("view");
+  let page = $state(
+      requestedView === "nodes"
+        ? "Compute nodes"
+        : requestedView === "workspaces"
+          ? "Workspaces"
+          : "Overview",
+    ),
     selectedLab = $state(""),
     query = $state(""),
     filter = $state("all"),
@@ -72,7 +82,10 @@
     template = $state("jupyter"),
     cpus = $state(2),
     memory = $state(2048),
-    network = $state(false);
+    network = $state(false),
+    gpuIds = $state<string[]>([]);
+  let analyticsNode = $state(""),
+    analyticsWorkspace = $state("");
   let coordinatorUrl = $state(""),
     showCoordinator = $state(false);
   let dialogElement: HTMLDivElement | undefined = $state(),
@@ -132,12 +145,30 @@
   const nodes = $derived(
     data?.nodes.filter((n) => n.lab_id === lab?.id && !n.revoked) || [],
   );
+  const selectedNode = $derived(nodes.find((n) => n.id === nodeId));
+  $effect(() => {
+    const valid = gpuIds.filter((id) =>
+      selectedNode?.gpus?.some(
+        (g) => g.id === id && ["nvidia", "dri"].includes(g.access),
+      ),
+    );
+    if (valid.length !== gpuIds.length) gpuIds = valid;
+  });
   const workspaces = $derived(
     data?.workspaces.filter((w) => w.lab_id === lab?.id) || [],
   );
   const events = $derived(
     data?.events.filter((e) => e.lab_id === lab?.id).reverse() || [],
   );
+  $effect(() => {
+    if (analyticsNode && !nodes.some((n) => n.id === analyticsNode))
+      analyticsNode = "";
+    if (
+      analyticsWorkspace &&
+      !workspaces.some((w) => w.id === analyticsWorkspace)
+    )
+      analyticsWorkspace = "";
+  });
   const online = $derived(nodes.filter((n) => clock - n.last_seen < 45));
   const running = $derived(
     workspaces.filter(
@@ -225,8 +256,7 @@
     const timer = setInterval(() => {
       clock = Date.now() / 1000;
       if (data && demo) {
-        for (const node of data.nodes)
-          if (clock - node.last_seen < 45) node.last_seen = clock;
+        advanceDemo(data, clock);
       }
       if (data && !demo) refresh();
     }, 5000);
@@ -264,6 +294,7 @@
     memory = data?.settings.default_memory_mb || 2048;
     template = "jupyter";
     network = false;
+    gpuIds = [];
   }
   async function copy(text: string) {
     try {
@@ -292,6 +323,7 @@
             last_used: clock,
             error: "",
             network,
+            gpu_ids: gpuIds,
           });
           modal = "";
           notify("Demo workspace created");
@@ -313,6 +345,7 @@
           cpus,
           memory_mb: memory,
           network,
+          gpu_ids: gpuIds,
         });
         modal = "";
         notify("Workspace queued. Your node will prepare the container.");
@@ -693,6 +726,23 @@
             >{/if}
         </div>
 
+        {#if page === "Compute nodes" || page === "Workspaces"}
+          {#key lab?.id}{#if page === "Compute nodes"}<AnalyticsDashboard
+                {nodes}
+                {workspaces}
+                {clock}
+                {demo}
+                mode="nodes"
+                bind:selected={analyticsNode}
+              />{:else}<AnalyticsDashboard
+                {nodes}
+                {workspaces}
+                {clock}
+                {demo}
+                mode="workspaces"
+                bind:selected={analyticsWorkspace}
+              />{/if}{/key}
+        {/if}
         {#if page === "Overview"}
           <section class="stats-grid" aria-label="Lab overview">
             <div class="stat">
@@ -983,6 +1033,11 @@
                   <span><Cpu size={15} />{n.cpus} cores</span><span
                     ><MemoryStick size={15} />{mem(n.memory_mb)}</span
                   >
+                  {#if n.gpus?.length}<span
+                      ><Cpu size={15} />{n.gpus.length} GPU{n.gpus.length > 1
+                        ? "s"
+                        : ""}</span
+                    >{/if}
                 </div>
                 <div class="meter-label">
                   <span>CPU usage</span><strong
@@ -991,7 +1046,11 @@
                       : "—"}</strong
                   >
                 </div>
-                <div class="meter"><i style={`width:${n.cpu_usage}%`}></i></div>
+                <div class="meter">
+                  <i
+                    style={`width:${clock - n.last_seen < 45 ? n.cpu_usage : 0}%`}
+                  ></i>
+                </div>
                 <div class="meter-label">
                   <span>Memory</span><strong
                     >{clock - n.last_seen < 45
@@ -1001,7 +1060,7 @@
                 </div>
                 <div class="meter teal-meter">
                   <i
-                    style={`width:${n.memory_mb ? (n.memory_used_mb / n.memory_mb) * 100 : 0}%`}
+                    style={`width:${clock - n.last_seen < 45 && n.memory_mb ? (n.memory_used_mb / n.memory_mb) * 100 : 0}%`}
                   ></i>
                 </div>
                 <div class="compute-footer">
@@ -1154,7 +1213,9 @@
                 <div>
                   <label for="publicurl">Public coordinator URL</label>
                   <p>
-                    Your HTTPS gateway address, used in pairing instructions.
+                    {data?.remote_access?.managed
+                      ? "Managed by your cloud setup. Rerun setup on the VM to change it."
+                      : "Your HTTPS gateway address, used in pairing instructions."}
                   </p>
                 </div>
                 <input
@@ -1162,7 +1223,7 @@
                   type="url"
                   bind:value={settingsDraft.public_url}
                   placeholder="https://lab.example.com"
-                  disabled={!owner}
+                  disabled={!owner || data?.remote_access?.managed}
                 />
               </div>
             </section>
@@ -1234,6 +1295,21 @@
               <h2>Access & connections</h2>
               <div class="setting-row">
                 <div>
+                  <strong>Host on a cloud VM</strong>
+                  <p>
+                    Use EC2 or another provider’s public IP for your dashboard
+                    and workspaces.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="secondary"
+                  onclick={() => open("remote")}
+                  ><Globe2 size={17} />Set up cloud access</button
+                >
+              </div>
+              <div class="setting-row">
+                <div>
                   <label for="session">Session duration</label>
                   <p>Applies to new browser sign-ins.</p>
                 </div>
@@ -1297,6 +1373,7 @@
     <div
       class="modal"
       class:console-modal={modal === "console"}
+      class:remote-modal={modal === "remote"}
       bind:this={dialogElement}
       role="dialog"
       aria-modal="true"
@@ -1463,6 +1540,41 @@
                   >
                 </div>
               </div>
+              {#if selectedNode?.gpus?.length}<fieldset class="gpu-picker">
+                  <legend>GPU acceleration <span>Optional</span></legend
+                  >{#each selectedNode.gpus as gpu}{@const assigned =
+                      workspaces.some(
+                        (w) =>
+                          w.node_id === nodeId && w.gpu_ids?.includes(gpu.id),
+                      )}{@const supported = ["nvidia", "dri"].includes(
+                      gpu.access,
+                    )}<label
+                      ><input
+                        type="checkbox"
+                        bind:group={gpuIds}
+                        value={gpu.id}
+                        disabled={!supported ||
+                          assigned ||
+                          (!demo && !fresh(selectedNode.metrics, clock))}
+                      /><span
+                        ><strong>{gpu.name}</strong><small
+                          >{assigned
+                            ? "Assigned to another workspace"
+                            : gpu.access_note}</small
+                        ></span
+                      ><em
+                        >{supported
+                          ? assigned
+                            ? "Assigned"
+                            : "Available"
+                          : "Monitoring only"}</em
+                      ></label
+                    >{/each}
+                  <p>
+                    Selected GPUs are reserved until this workspace is removed.
+                    GPU libraries must be available in the workspace image.
+                  </p>
+                </fieldset>{/if}
               {#if data?.settings.allow_network}<label class="checkbox-label"
                   ><input type="checkbox" bind:checked={network} />Allow
                   outbound network access</label
@@ -1518,6 +1630,20 @@
             >{activeWorkspace.network ? "Outbound allowed" : "Isolated"}</strong
           ><span>Storage</span><strong>Persistent Docker volume</strong>
         </div>
+        <WorkspaceMetrics
+          workspace={activeWorkspace}
+          node={nodes.find((n) => n.id === activeWorkspace?.node_id)}
+          {clock}
+          connected={online.some((n) => n.id === activeWorkspace?.node_id)}
+        />
+        <button
+          class="text-button detail-analytics-link"
+          onclick={() => {
+            analyticsWorkspace = activeWorkspace!.id;
+            modal = "";
+            navigate("Workspaces");
+          }}>View workspace analytics <ArrowRight size={15} /></button
+        >
         {#if activeWorkspace.error}<div class="inline-error">
             {activeWorkspace.error}
           </div>{/if}{#if canOperate}<div class="detail-actions">
@@ -1581,6 +1707,14 @@
               >{workspaces.filter((w) => w.node_id === n.id).length}</strong
             ><span>Node ID</span><code>{n.id}</code>
           </div>
+          <button
+            class="secondary detail-analytics-link"
+            onclick={() => {
+              analyticsNode = n.id;
+              modal = "";
+              navigate("Compute nodes");
+            }}><Activity size={16} />View node analytics</button
+          >
           {#if owner}<p class="hint">
               Revoking disconnects this node from the coordinator. Stop its
               workspaces first; revocation does not stop containers on an
@@ -1610,6 +1744,8 @@
       {:else if modal === "console" && activeWorkspace}
         {#key activeWorkspace.id}<TerminalWorkspace
             workspace={activeWorkspace}
+            node={nodes.find((n) => n.id === activeWorkspace?.node_id)}
+            {clock}
             labName={lab?.name || "CloudLab"}
             nodeName={nodeName(activeWorkspace.node_id)}
             connected={online.some(
@@ -1619,57 +1755,9 @@
             onclose={() => (modal = "")}
             onbusy={(running) => (busy = running)}
           />{/key}
-      {:else if modal === "remote"}<div class="modal-symbol">
-          <Globe2 size={25} />
-        </div>
-        <h2>Your lab, from anywhere.</h2>
-        <p class="modal-intro">
-          Keep the coordinator and nodes on your hardware. Give the coordinator
-          a reachable, encrypted address.
-        </p>
-        <ol class="help-steps">
-          <li>
-            <strong>Choose a free DuckDNS address.</strong>
-            <p>
-              Register a name such as my-cloudlab at DuckDNS. Use
-              lab.my-cloudlab.duckdns.org for your dashboard. Keep your DuckDNS
-              token in a private file on the gateway.
-            </p>
-          </li>
-          <li>
-            <strong>Keep the IP current and enable HTTPS.</strong>
-            <p>
-              Use the router’s DuckDNS updater or the included five-minute
-              helper. The DuckDNS Caddy configuration renews one wildcard
-              certificate for your dashboard and workspaces.
-            </p>
-          </li>
-          <li>
-            <strong>Set the workspace address and forward HTTPS.</strong>
-            <p>
-              Restart the coordinator with the DuckDNS workspace template,
-              keeping its data directory. Forward TCP 443 to Caddy. DuckDNS does
-              not bypass CGNAT; use a reachable gateway or VPN if needed.
-            </p>
-          </li>
-          <li>
-            <strong>Save the public URL and pair nodes.</strong>
-            <p>
-              Save https://lab.my-cloudlab.duckdns.org in Lab settings, then
-              generate pairing commands. Test Jupyter and VS Code from another
-              network.
-            </p>
-          </li>
-        </ol>
-        <DuckDNSGuide />
-        <p class="hint">
-          Already have a domain? You can keep your provider and Caddy setup, or
-          use WireGuard for private access.
-        </p>
-        <div class="form-note">
-          <LockKeyhole size={17} />The coordinator authenticates every workspace
-          connection.
-        </div>
+      {:else if modal === "remote"}<CloudAccessGuide
+          remote={data?.remote_access}
+        />
       {:else}<div class="modal-symbol"><FlaskConical size={25} /></div>
         <h2>A quick tour of your lab.</h2>
         <ol class="help-steps">

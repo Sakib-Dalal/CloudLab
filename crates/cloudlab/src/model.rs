@@ -28,6 +28,50 @@ pub fn valid_name(value: &str) -> bool {
     (2..=60).contains(&value.trim().chars().count()) && !value.chars().any(char::is_control)
 }
 
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+pub struct Gpu {
+    pub id: String,
+    pub name: String,
+    pub vendor: String,
+    pub utilization: Option<f32>,
+    pub memory_used_mb: Option<u64>,
+    pub memory_total_mb: Option<u64>,
+    pub temperature_c: Option<f32>,
+    pub power_watts: Option<f32>,
+    #[serde(default)]
+    pub shared_memory: bool,
+    #[serde(default)]
+    pub access: String,
+    #[serde(default)]
+    pub access_note: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+pub struct Metrics {
+    pub at: u64,
+    pub cpu_usage: f32,
+    pub memory_used_mb: u64,
+    pub memory_total_mb: u64,
+    pub network_rx_bytes: u64,
+    pub network_tx_bytes: u64,
+    pub disk_read_bytes: Option<u64>,
+    pub disk_write_bytes: Option<u64>,
+    pub pids: Option<u64>,
+    #[serde(default)]
+    pub gpus: Vec<Gpu>,
+}
+
+/// One hour of samples, held in memory rather than rewriting telemetry to disk.
+pub fn record_metrics(history: &mut Vec<Metrics>, sample: &Metrics) {
+    history.retain(|m| m.at + 3600 > sample.at);
+    if history.last().is_none_or(|m| sample.at >= m.at + 10) {
+        history.push(sample.clone());
+    }
+    if history.len() > 360 {
+        history.drain(..history.len() - 360);
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Lab {
     pub id: String,
@@ -50,6 +94,12 @@ pub struct Node {
     pub revoked: bool,
     #[serde(default)]
     pub credential_hash: String,
+    #[serde(default)]
+    pub gpus: Vec<Gpu>,
+    #[serde(default)]
+    pub metrics: Option<Metrics>,
+    #[serde(skip)]
+    pub history: Vec<Metrics>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Workspace {
@@ -65,6 +115,12 @@ pub struct Workspace {
     pub last_used: u64,
     pub error: String,
     pub network: bool,
+    #[serde(default)]
+    pub gpu_ids: Vec<String>,
+    #[serde(default)]
+    pub metrics: Option<Metrics>,
+    #[serde(skip)]
+    pub history: Vec<Metrics>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -251,4 +307,34 @@ pub fn write_private(path: &Path, contents: &[u8]) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod telemetry_tests {
+    use super::*;
+    #[test]
+    fn history_is_bounded_deduplicated_and_not_persisted() {
+        let mut history = Vec::new();
+        for at in 1..=4000 {
+            record_metrics(
+                &mut history,
+                &Metrics {
+                    at,
+                    ..Default::default()
+                },
+            );
+        }
+        assert!(history.len() <= 360);
+        assert!(history.windows(2).all(|v| v[1].at - v[0].at >= 10));
+        assert!(history.first().unwrap().at + 3600 > 4000);
+        let old = serde_json::json!({"id":id(),"lab_id":id(),"node_id":id(),"name":"Old workspace","template":"terminal","cpus":2,"memory_mb":1024,"status":"running","created_at":0,"last_used":0,"error":"","network":false});
+        let mut workspace: Workspace = serde_json::from_value(old).unwrap();
+        assert!(workspace.gpu_ids.is_empty());
+        assert!(workspace.metrics.is_none());
+        workspace.history = history;
+        assert!(serde_json::to_value(workspace)
+            .unwrap()
+            .get("history")
+            .is_none());
+    }
 }

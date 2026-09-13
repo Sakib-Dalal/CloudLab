@@ -14,6 +14,8 @@ jobs:
           components: rustfmt, clippy
       - run: npm ci
       - run: npm run check && npm run build
+      - run: npm run test:metrics
+      - run: npm run test:cloud
       - run: cargo fmt --check
       - run: cargo clippy --locked -p cloudlab --all-targets -- -D warnings
       - run: cargo test --locked -p cloudlab
@@ -21,6 +23,8 @@ jobs:
       - run: ./scripts/build-images.sh terminal
       - run: python3 tests/duckdns.py
       - run: python3 tests/integration.py
+      - run: docker build -t cloudlab-cloud-check:local .
+      - run: python3 tests/cloud_gateway.py
   desktop:
     runs-on: macos-latest
     steps:

@@ -96,6 +96,38 @@ pub async fn run(
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
     });
+    // Sensor tools run separately so an unavailable driver cannot block heartbeats or jobs.
+    let samples = Arc::new(Mutex::new((
+        None::<Metrics>,
+        std::collections::HashMap::<String, Metrics>::new(),
+    )));
+    let collected = samples.clone();
+    let telemetry_node = credentials.id.clone();
+    tokio::spawn(async move {
+        let mut system = sysinfo::System::new_all();
+        let mut networks = sysinfo::Networks::new_with_refreshed_list();
+        loop {
+            let (gpus, workspaces) = tokio::join!(
+                crate::telemetry::gpus(),
+                crate::telemetry::workspace_metrics(&telemetry_node)
+            );
+            system.refresh_cpu_usage();
+            system.refresh_memory();
+            networks.refresh(true);
+            let metrics = Metrics {
+                at: now(),
+                cpu_usage: system.global_cpu_usage(),
+                memory_used_mb: system.used_memory() / 1048576,
+                memory_total_mb: system.total_memory() / 1048576,
+                network_rx_bytes: networks.values().map(|n| n.total_received()).sum(),
+                network_tx_bytes: networks.values().map(|n| n.total_transmitted()).sum(),
+                gpus,
+                ..Default::default()
+            };
+            *collected.lock().await = (Some(metrics), workspaces);
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+    });
     let working = Arc::new(Mutex::new(false));
     loop {
         system.refresh_cpu_usage();
@@ -112,7 +144,8 @@ pub async fn run(
         // Heartbeats continue while a Docker operation runs; poll may lease only
         // when this process is ready to execute a job.
         {
-            let request=client.post(format!("{coordinator}/api/agent/poll")).bearer_auth(&credentials.token).json(&json!({"cpu_usage":system.global_cpu_usage(),"memory_used_mb":system.used_memory()/1024/1024,"docker":docker,"containers":containers,"ready":ready})).send().await;
+            let (metrics, workspace_metrics) = samples.lock().await.clone();
+            let request=client.post(format!("{coordinator}/api/agent/poll")).bearer_auth(&credentials.token).json(&json!({"cpu_usage":system.global_cpu_usage(),"memory_used_mb":system.used_memory()/1024/1024,"docker":docker,"containers":containers,"ready":ready,"metrics":metrics,"workspace_metrics":workspace_metrics})).send().await;
             match request {
                 Ok(response) if response.status().is_success()=>{
                     let value:Value=response.json().await?;

@@ -151,3 +151,99 @@ export const demoData: Snapshot = {
   },
   access: [],
 };
+
+// Clearly marked preview data follows the same telemetry contract as real agents.
+const previewGpu = (
+  id: string,
+  name: string,
+  vendor: string,
+  access: string,
+) => ({
+  id,
+  name,
+  vendor,
+  access,
+  utilization: 0,
+  memory_used_mb: 0,
+  memory_total_mb: vendor === "Apple" ? null : 24576,
+  temperature_c: vendor === "Apple" ? null : 54,
+  power_watts: vendor === "Apple" ? null : 112,
+  shared_memory: vendor === "Apple",
+  access_note:
+    vendor === "Apple"
+      ? "Mac GPU detected. Docker Desktop does not expose Metal GPUs to these Linux workspaces."
+      : "NVIDIA compute access. The workspace image also needs compatible CUDA libraries.",
+});
+demoData.nodes[0].gpus = [
+  previewGpu("GPU-demo-atlas", "NVIDIA GeForce RTX 4090", "NVIDIA", "nvidia"),
+];
+demoData.nodes[1].gpus = [
+  previewGpu("mac-apple-m2", "Apple M2 GPU", "Apple", "none"),
+];
+demoData.workspaces[0].gpu_ids = ["GPU-demo-atlas"];
+const offlineDemoNodes = new Set(
+  demoData.nodes
+    .filter((node) => now - node.last_seen >= 45)
+    .map((node) => node.id),
+);
+export function advanceDemo(data: Snapshot, at: number) {
+  for (const [index, resource] of [
+    ...data.nodes,
+    ...data.workspaces,
+  ].entries()) {
+    const active =
+      "last_seen" in resource
+        ? !resource.revoked && !offlineDemoNodes.has(resource.id)
+        : resource.status === "running";
+    if (!active) continue;
+    const phase = at / 45 + index * 2;
+    const cpu = Math.max(
+      2,
+      Math.min(
+        98,
+        30 + index * 4 + Math.sin(phase) * 13 + Math.sin(phase * 2.7) * 6,
+      ),
+    );
+    const gpus =
+      "gpus" in resource
+        ? (resource.gpus ?? []).map((g) => ({
+            ...g,
+            utilization: Math.max(0, 43 + Math.sin(phase / 2) * 31),
+            memory_used_mb:
+              g.vendor === "Apple"
+                ? 840
+                : 6700 + Math.round(Math.sin(phase) * 450),
+          }))
+        : [];
+    const m = {
+      at,
+      cpu_usage: cpu,
+      memory_used_mb: Math.round(
+        resource.memory_mb * (0.29 + Math.sin(phase / 3) * 0.055),
+      ),
+      memory_total_mb: resource.memory_mb,
+      network_rx_bytes: Math.floor(
+        (at % 1e7) * (170000 + index * 37000) + Math.sin(phase) * 1200000,
+      ),
+      network_tx_bytes: Math.floor((at % 1e7) * (60000 + index * 7000)),
+      disk_read_bytes: Math.floor(at * 24000),
+      disk_write_bytes: Math.floor(at * 14000),
+      pids: 14 + index * 2,
+      gpus,
+    };
+    resource.metrics = m;
+    resource.history ??= [];
+    if (at - (resource.history.at(-1)?.at ?? 0) >= 10) resource.history.push(m);
+    resource.history = resource.history
+      .filter((m) => m.at > at - 3600)
+      .slice(-360);
+    if ("last_seen" in resource) {
+      resource.last_seen = at;
+      resource.gpus = gpus;
+      resource.cpu_usage = cpu;
+      resource.memory_used_mb = m.memory_used_mb;
+    }
+  }
+}
+for (let offset = 3590; offset >= 0; offset -= 10)
+  advanceDemo(demoData, now - offset);

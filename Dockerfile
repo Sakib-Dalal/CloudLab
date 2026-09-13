@@ -13,6 +13,7 @@ WORKDIR /source
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY src-tauri ./src-tauri
+COPY public ./public
 RUN cargo build --release --locked -p cloudlab
 
 FROM debian:bookworm-slim

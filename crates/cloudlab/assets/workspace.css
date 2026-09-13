@@ -367,3 +367,156 @@ button:disabled {
   font-size: 12px;
   line-height: 1.5;
 }
+.workspace-monitor {
+  flex-shrink: 0;
+  background: #1b232b;
+  color: #e6edf3;
+  border-bottom: 1px solid #34414b;
+  color-scheme: dark;
+}
+.workspace-monitor-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 9px 24px;
+  font-size: 10px;
+}
+.workspace-monitor-bar > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #b3c0ca;
+}
+.workspace-monitor-bar strong {
+  color: #e0eaf3;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.workspace-monitor-bar small {
+  color: #91a1ae;
+  font-size: 9px;
+}
+.workspace-monitor-bar .monitor-status {
+  color: #70d7c7;
+}
+.workspace-monitor-bar .monitor-status.stale {
+  color: #f4b56b;
+}
+.monitor-status::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.workspace-monitor-bar button {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: #b8cad7;
+  padding: 2px;
+  min-height: 20px;
+  font-size: 10px;
+}
+#metric-charts {
+  max-height: 38vh;
+  overflow: auto;
+}
+.monitor-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 5px 24px 12px;
+  color: #98a8b5;
+  font-size: 10px;
+}
+.monitor-controls > span {
+  letter-spacing: 1px;
+  font-size: 9px;
+  margin-right: auto;
+}
+.monitor-controls label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.monitor-controls select {
+  background: #222d36;
+  border: 1px solid #3b4955;
+  color: #cfdae3;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+}
+.monitor-controls input {
+  accent-color: #70d7c7;
+}
+.workspace-monitor-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 0 16px 10px;
+}
+.mini-chart {
+  background: #202b34;
+  border: 1px solid #344450;
+  border-radius: 6px;
+  padding: 13px;
+  min-width: 0;
+}
+.mini-chart h3 {
+  font-size: 11px;
+  font-weight: 550;
+  margin: 0 0 7px;
+  color: #d3dfe9;
+}
+.mini-chart h3 span {
+  display: block;
+  font-size: 9px;
+  color: #94a8b9;
+  margin-top: 4px;
+  font-weight: 400;
+}
+.mini-chart > strong {
+  font-size: 19px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.mini-chart svg {
+  display: block;
+  width: 100%;
+  height: 85px;
+  margin-top: 10px;
+}
+.chart-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #91a1b0;
+  margin: 7px 0 0;
+}
+#gpu-legend {
+  font-size: 9px;
+  color: #a7bacb;
+  margin: 6px 0;
+}
+.monitor-caption {
+  color: #91a1b0;
+  font-size: 9px;
+  padding: 0 17px 10px;
+  margin: 0;
+}
+@media (max-width: 700px) {
+  .workspace-monitor-bar {
+    padding: 8px 12px;
+    gap: 9px 14px;
+  }
+  .workspace-monitor-charts {
+    grid-template-columns: 1fr;
+  }
+  .monitor-controls {
+    padding: 7px 12px 12px;
+  }
+}

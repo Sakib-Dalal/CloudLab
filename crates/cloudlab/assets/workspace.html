@@ -49,6 +49,109 @@
           ><span id="network">Isolated container</span>
         </div>
       </div>
+      <section class="workspace-monitor" aria-label="Workspace live metrics">
+        <div class="workspace-monitor-bar">
+          <span id="metric-status" class="monitor-status"
+            >Awaiting telemetry</span
+          >
+          <span>CPU <strong id="metric-cpu">—</strong></span>
+          <span>RAM <strong id="metric-memory">—</strong></span>
+          <span>Network <strong id="metric-network">—</strong></span>
+          <span id="metric-gpu-wrap" hidden
+            >GPU <strong id="metric-gpu">—</strong
+            ><small>device-wide</small></span
+          >
+          <button
+            id="toggle-metrics"
+            type="button"
+            aria-expanded="false"
+            aria-controls="metric-charts"
+          >
+            Show charts ▾
+          </button>
+        </div>
+        <div id="metric-charts" hidden>
+          <div class="monitor-controls">
+            <span>WORKSPACE ANALYTICS</span
+            ><label
+              >Time range
+              <select id="metric-range">
+                <option value="300">Last 5 minutes</option>
+                <option value="900">Last 15 minutes</option>
+                <option value="3600">Last hour</option>
+              </select></label
+            ><label id="include-gpu-label" hidden
+              ><input id="include-gpu" type="checkbox" checked /> Include
+              GPU</label
+            >
+          </div>
+          <div class="workspace-monitor-charts">
+            <article class="mini-chart">
+              <h3>CPU utilization <span>% of allocated cores</span></h3>
+              <strong id="chart-cpu-value">—</strong
+              ><svg
+                id="chart-cpu"
+                viewBox="0 0 600 100"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Workspace CPU usage history"
+              ></svg>
+              <p class="chart-times">
+                <span class="chart-start"></span><span>Now</span>
+              </p>
+            </article>
+            <article class="mini-chart">
+              <h3>Memory utilization <span>% of memory limit</span></h3>
+              <strong id="chart-memory-value">—</strong
+              ><svg
+                id="chart-memory"
+                viewBox="0 0 600 100"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Workspace memory usage history"
+              ></svg>
+              <p class="chart-times">
+                <span class="chart-start"></span><span>Now</span>
+              </p>
+            </article>
+            <article class="mini-chart">
+              <h3>Network throughput <span>receive + transmit</span></h3>
+              <strong id="chart-network-value">—</strong
+              ><svg
+                id="chart-network"
+                viewBox="0 0 600 100"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Workspace network throughput history"
+              ></svg>
+              <p class="chart-times">
+                <span class="chart-start"></span><span>Now</span>
+              </p>
+            </article>
+            <article class="mini-chart" id="gpu-chart-panel" hidden>
+              <h3>
+                GPU utilization <span>device-wide · not per container</span>
+              </h3>
+              <strong id="chart-gpu-value">—</strong
+              ><svg
+                id="chart-gpu"
+                viewBox="0 0 600 100"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Assigned GPUs utilization history"
+              ></svg>
+              <p id="gpu-legend"></p>
+              <p class="chart-times">
+                <span class="chart-start"></span><span>Now</span>
+              </p>
+            </article>
+          </div>
+          <p class="monitor-caption">
+            Measurements from your compute node · gaps indicate unavailable
+            samples · history resets when the coordinator restarts
+          </p>
+        </div>
+      </section>
       <div
         id="connection-alert"
         class="connection-alert"

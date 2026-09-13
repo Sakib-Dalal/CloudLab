@@ -15,7 +15,7 @@ Validated on macOS with Rust 1.96.1, Node.js 22, and Docker Desktop 29.6.1 using
 
 The Docker integration suite removes only the containers, networks, and volumes belonging to its temporary node IDs. Built workspace images are retained for use.
 
-Not verified in this environment: public internet routing/DNS/TLS, two separate physical machines, Windows/Linux desktop installers, hostile multi-tenant resistance, or exhaustive browser compatibility. The coordinator Dockerfile is supplied; only the workspace images were built and exercised here. See the security guide for current resource and protocol limits.
+Not verified in this environment: public internet routing/DNS/TLS, two separate physical machines, Windows/Linux desktop installers, hostile multi-tenant resistance, or exhaustive browser compatibility. The coordinator image and generated cloud gateway were subsequently built and tested locally; see the cloud setup checks below. See the security guide for current resource and protocol limits.
 
 
 ## Workspace launch and interface regression — September 13, 2026
@@ -37,3 +37,13 @@ Not verified in this environment: public internet routing/DNS/TLS, two separate 
 - The Docker frontend stage built successfully with the shared guide included.
 
 Not performed: DuckDNS account registration, changes to public DNS or router/firewall settings, live ACME certificate issuance, public network testing, or website publication. Follow `docs/duckdns.md` with a registered name and a reachable gateway to complete an actual deployment.
+
+## Cloud VM access and analytics — September 13, 2026
+
+- Frontend type/accessibility checks, production build, Rust formatting, Clippy with warnings denied, 19 Rust tests, and macOS desktop compilation passed. Analytics checks cover sample freshness, rate resets, gaps, history bounds, and resuming simulated metrics after a browser tab has been inactive.
+- Ten offline cloud setup tests passed, covering AWS IMDSv2, provider metadata headers, Reserved IP fallback, bounded metadata reads, rejected redirects/proxies, public IPv4/domain validation, private files, generated port isolation, plan-only behavior, build failure preservation, and deliberate public-IP changes. Browser command-generation checks also passed.
+- Built the full production coordinator Docker image. This exposed and fixed a missing embedded favicon in the Rust build stage. Standard Caddy validated the generated configuration.
+- A disposable Docker stack with a local test certificate authority exercised raw-IP redirects, certificate-verified HTTPS, matching coordinator identity, secure owner cookies, startup-managed addresses, denied Settings changes to managed origins, node WebSocket upgrades, per-workspace certificates, launch/session scoping, and rejection of unknown certificate names. Test sockets connected only to loopback; no public certificates were requested. The node protocol fixture did not execute container jobs; the earlier real workspace integration covers those.
+- Browser preview: checked the remote-access visualization, AWS automatic command, manual IPv4 validation, alternate-provider command generation, and a 390-pixel layout with no horizontal page/modal overflow. The AWS setup preview remains available in the local development app.
+
+Not performed: provisioning or connecting to an actual cloud account/VM, changing security groups or public DNS, exercising the host systemd installer on EC2, live ACME issuance, or verification from a separate network. Cloud deployments require a supported Linux VM, Docker/Compose, a reachable public IPv4, and inbound TCP 80/443.

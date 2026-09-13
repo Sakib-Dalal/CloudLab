@@ -15,6 +15,12 @@ npm run website:dev
 
 Open **http://127.0.0.1:4173**. Root `vercel.json` publishes only `website/build/`, with the repository root selected in Vercel. Connect the GitHub repository to Vercel once: pushes to `main` deploy production and branch changes receive previews according to project settings. Website checks run both during deployment and in GitHub Actions. See the [deployment instructions](website/README.md#vercel--github). Vercel hosts the public guide; your Rust coordinator and compute nodes remain self-hosted.
 
+## Host on AWS EC2 or another cloud VM
+
+Open **Settings → Set up cloud access** for a visual guide. CloudLab can detect a VM’s public IP, configure an HTTPS dashboard and isolated workspace addresses, and pair the VM as a compute node automatically. AWS, Google Cloud, Azure, and DigitalOcean support metadata detection; other providers work with a supplied public/static IPv4.
+
+See [cloud VM setup](docs/cloud-access.md) for prerequisites, a provider-specific setup command, firewall rules, and updates. The VM hosts both the dashboard and workspaces. No cloud account keys or domain purchase are needed for the IP-based path.
+
 ## Start a local lab
 
 Requirements: Node.js 22.12+, a current stable Rust toolchain, and Docker Engine or Docker Desktop in Linux-container mode on each compute node. A coordinator does not need Docker.
@@ -78,8 +84,8 @@ The coordinator has no Docker socket. Compute agents run separately on their dev
 | Area | Behavior |
 | --- | --- |
 | Labs | Multiple labs with separate nodes, workspaces, activity, and access keys |
-| Nodes | One-time enrollment, independent credentials, heartbeats, CPU/RAM telemetry, revocation, reconnecting outbound relay |
-| Workspaces | Fixed templates, CPU/RAM reservations, create/stop/resume/remove, dedicated persistent volumes |
+| Nodes | One-time enrollment, independent credentials, heartbeats, CPU/RAM/network and GPU telemetry, revocation, reconnecting outbound relay |
+| Workspaces | Fixed templates, CPU/RAM/GPU reservations, create/stop/resume/remove, dedicated persistent volumes |
 | Tools | JupyterLab and code-server over authenticated HTTP/WebSockets; buffered Linux console commands |
 | Access | Owner administration, lab-scoped operator/viewer keys, 7-day key expiry, session expiry and revocation |
 | Settings | Coordinator name/URL, default CPU/RAM, lab workspace cap, idle shutdown, session duration, network policy |
@@ -90,9 +96,15 @@ The coordinator has no Docker socket. Compute agents run separately on their dev
 
 **Operators share all workspaces in their assigned lab.** Viewers can only inspect status and activity. Use separate labs for separate trust groups. Lab settings are coordinator-wide defaults and policies, not per-user quotas.
 
+## Analytics and GPU workspaces
+
+**Compute nodes** and **Workspaces** include Grafana-style visual dashboards: CPU and memory trends, network throughput, container disk I/O, status summaries, node reservations, GPU utilization, and available GPU memory/temperature/power sensors. Filter by node or workspace, select the last 5 minutes, 15 minutes, or hour, pause the display, inspect points with the time slider, and toggle GPU charts. Open consoles, JupyterLab, and VS Code also show live usage with expandable charts.
+
+Agents sample in the background; the coordinator holds up to one hour of history in memory, resetting on restart. Missing or stale readings are shown as unavailable. New workspace creation offers detected GPUs that support container access: NVIDIA on Linux/WSL2 with a configured GPU runtime, and AMD/Intel render devices on a local Linux Docker engine. Apple and other Mac GPUs are detected for monitoring; ordinary Docker Desktop Linux containers cannot use Metal GPUs. Driver and image requirements, sensor limitations, and reservation behavior are described in [analytics and GPU support](docs/analytics.md).
+
 ## Isolation and remote connectivity
 
-Each workspace runs as UID/GID 1000 with a read-only root filesystem, all Linux capabilities dropped, no-new-privileges, a PID cap, CPU and hard memory/swap limits, restricted temporary filesystems, a private network namespace with only loopback by default, and a dedicated Docker volume. There are no host directories, host PID/network namespaces, GPUs, USB devices, or Docker socket mounts exposed through the API.
+Each workspace runs as UID/GID 1000 with a read-only root filesystem, all Linux capabilities dropped, no-new-privileges, a PID cap, CPU and hard memory/swap limits, restricted temporary filesystems, a private network namespace with only loopback by default, and a dedicated Docker volume. There are no host directories, host PID/network namespaces, USB devices, or Docker socket mounts exposed through the API. Optional GPU access is limited to devices discovered by the node; see [analytics and GPUs](docs/analytics.md).
 
 Each browser workspace has its **own origin**, such as `http://w-ID.localhost:8089`, with a separate scoped HttpOnly cookie. The dashboard remains on another origin. Workspace credentials never reach containers. The node verifies Docker ownership labels, then relays to a fixed application port inside the container over an unprivileged Docker exec stream. No workspace ports are published on the host. The gateway supports HTTP and WebSocket traffic; it does not provide arbitrary TCP or host desktop access.
 
@@ -111,6 +123,7 @@ Follow the **[ten-step DuckDNS setup](docs/duckdns.md)** for registration, priva
 
 ```sh
 npm run check
+npm run test:metrics
 npm run build
 python3 tests/duckdns.py
 cargo fmt --check

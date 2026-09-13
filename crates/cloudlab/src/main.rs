@@ -23,6 +23,9 @@ enum Commands {
             env = "CLOUDLAB_APP_URL"
         )]
         app_url: String,
+        /// Managed HTTPS dashboard origin (also configures node pairing).
+        #[arg(long, env = "CLOUDLAB_PUBLIC_URL")]
+        public_url: Option<String>,
         #[arg(long, default_value = ".cloudlab", env = "CLOUDLAB_DATA_DIR")]
         data_dir: PathBuf,
         #[arg(long, default_value = "dist", env = "CLOUDLAB_WEB_DIR")]
@@ -46,9 +49,10 @@ async fn main() -> anyhow::Result<()> {
             bind,
             app_bind,
             app_url,
+            public_url,
             data_dir,
             web_dir,
-        } => cloudlab::server::serve(bind, app_bind, app_url, data_dir, web_dir).await,
+        } => cloudlab::server::serve(bind, app_bind, app_url, public_url, data_dir, web_dir).await,
         Commands::Agent {
             coordinator,
             enrollment,

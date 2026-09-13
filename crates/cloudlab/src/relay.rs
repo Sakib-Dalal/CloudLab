@@ -409,7 +409,7 @@ async fn gateway(
                 let lab = s.db.labs.iter().find(|l| l.id == w.lab_id);
                 crate::workspace_ui::metadata(
                     &w,
-                    &n.name,
+                    n,
                     lab.map(|l| l.name.as_str()).unwrap_or("CloudLab"),
                 )
             }
@@ -867,6 +867,9 @@ mod tests {
                 last_used: now(),
                 error: String::new(),
                 network: false,
+                gpu_ids: Vec::new(),
+                metrics: None,
+                history: Vec::new(),
             });
             store.db.nodes.push(Node {
                 id: node.clone(),
@@ -881,6 +884,9 @@ mod tests {
                 last_seen: now(),
                 docker: true,
                 revoked: false,
+                gpus: Vec::new(),
+                metrics: None,
+                history: Vec::new(),
                 credential_hash: hash("node-secret"),
             });
         }

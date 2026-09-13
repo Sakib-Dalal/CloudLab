@@ -12,6 +12,9 @@ export type Node = {
   last_seen: number;
   docker: boolean;
   revoked: boolean;
+  gpus?: GPU[];
+  metrics?: Metrics | null;
+  history?: Metrics[];
 };
 export type Workspace = {
   id: string;
@@ -26,6 +29,9 @@ export type Workspace = {
   last_used: number;
   error: string;
   network: boolean;
+  gpu_ids?: string[];
+  metrics?: Metrics | null;
+  history?: Metrics[];
 };
 export type LabEvent = {
   id: string;
@@ -52,6 +58,11 @@ export type Access = {
   expires_at: number;
 };
 export type Snapshot = {
+  remote_access?: {
+    managed: boolean;
+    public_url: string;
+    workspace_url: string;
+  };
   labs: Lab[];
   nodes: Node[];
   workspaces: Workspace[];
@@ -59,4 +70,30 @@ export type Snapshot = {
   settings: Settings;
   access: Access[];
   role: string;
+};
+
+export type GPU = {
+  id: string;
+  name: string;
+  vendor: string;
+  utilization: number | null;
+  memory_used_mb: number | null;
+  memory_total_mb: number | null;
+  temperature_c: number | null;
+  power_watts: number | null;
+  shared_memory: boolean;
+  access: string;
+  access_note: string;
+};
+export type Metrics = {
+  at: number;
+  cpu_usage: number;
+  memory_used_mb: number;
+  memory_total_mb: number;
+  network_rx_bytes: number;
+  network_tx_bytes: number;
+  disk_read_bytes: number | null;
+  disk_write_bytes: number | null;
+  pids: number | null;
+  gpus: GPU[];
 };

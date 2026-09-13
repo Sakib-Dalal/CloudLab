@@ -58,6 +58,7 @@ pub struct AppState {
     pub admin_hash: String,
     pub relay: Arc<Relay>,
     pub app_url: String,
+    pub remote_public_url: Option<String>,
     login_attempts: Arc<Mutex<(u64, u32)>>,
     desktop_bootstrap: Arc<Mutex<Option<(String, u64)>>>,
 }
@@ -197,6 +198,7 @@ pub async fn create_state(dir: PathBuf, app_url: String) -> anyhow::Result<AppSt
         admin_hash: hash(&admin),
         relay: Arc::new(Relay::default()),
         app_url,
+        remote_public_url: None,
         login_attempts: Arc::new(Mutex::new((now(), 0))),
         desktop_bootstrap: Arc::new(Mutex::new(None)),
     })
@@ -245,12 +247,17 @@ pub fn router(state: AppState, web: PathBuf) -> Router {
         .route("/desktop-bootstrap/{token}", get(desktop_bootstrap))
         .route(
             "/health",
-            get(|| async { Json(json!({"status":"ok","version":"2.0.0"})) }),
+            get(|State(state): State<AppState>| async move {
+                // A public, non-credential fingerprint lets setup verify that
+                // DNS reaches this installation, rather than another lab.
+                Json(json!({"status":"ok","version":"2.0.0", "instance_id":hash(&format!("cloudlab-public-instance:{}",state.admin_hash))}))
+            }),
         )
         .route("/agent/enroll", post(agent_enroll))
         .route("/agent/poll", post(agent_poll))
         .route("/agent/jobs/{id}", post(agent_complete))
         .route("/agent/tunnel", get(crate::relay::agent_tunnel));
+    let api = api.route("/tls/allow", get(crate::remote::allow_certificate));
     Router::new()
         .nest("/api", api)
         .fallback_service(
@@ -264,12 +271,16 @@ pub async fn serve(
     bind: SocketAddr,
     app_bind: SocketAddr,
     app_url: String,
+    public_url: Option<String>,
     dir: PathBuf,
     web: PathBuf,
 ) -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(bind).await?;
     let gateway = tokio::net::TcpListener::bind(app_bind).await?;
-    let state = create_state(dir, app_url).await?;
+    let mut state = create_state(dir, app_url).await?;
+    if let Some(public_url) = public_url {
+        crate::remote::configure(&mut state, &public_url).await?;
+    }
     eprintln!("CloudLab coordinator: http://{}", listener.local_addr()?);
     eprintln!("Workspace gateway: {}", gateway.local_addr()?);
     tokio::spawn(maintenance(state.clone()));
@@ -491,7 +502,18 @@ async fn snapshot(
         .map(|n| {
             let mut v = serde_json::to_value(n).unwrap();
             v.as_object_mut().unwrap().remove("credential_hash");
+            v["history"] = json!(n.history);
             v
+        })
+        .collect();
+    let workspaces: Vec<Value> = db
+        .workspaces
+        .iter()
+        .filter(|w| actor.lab(&w.lab_id).is_ok())
+        .map(|w| {
+            let mut value = serde_json::to_value(w).unwrap();
+            value["history"] = json!(w.history);
+            value
         })
         .collect();
     let access: Vec<Value> = if actor.role == "owner" {
@@ -508,7 +530,8 @@ async fn snapshot(
         vec![]
     };
     Ok(Json(
-        json!({"labs":labs,"nodes":nodes,"workspaces":db.workspaces.iter().filter(|w|actor.lab(&w.lab_id).is_ok()).collect::<Vec<_>>(),"events":db.events.iter().filter(|e|actor.lab(&e.lab_id).is_ok()).collect::<Vec<_>>(),"settings":db.settings,"access":access,"role":actor.role}),
+        json!({"labs":labs,"nodes":nodes,"workspaces":workspaces,"events":db.events.iter().filter(|e|actor.lab(&e.lab_id).is_ok()).collect::<Vec<_>>(),"settings":db.settings,"access":access,"role":actor.role,
+            "remote_access":{"managed":state.remote_public_url.is_some(),"public_url":db.settings.public_url,"workspace_url":state.app_url}}),
     ))
 }
 #[derive(Deserialize)]
@@ -657,6 +680,8 @@ struct NewWorkspace {
     memory_mb: u64,
     #[serde(default)]
     network: bool,
+    #[serde(default)]
+    gpu_ids: Vec<String>,
 }
 async fn create_workspace(
     State(state): State<AppState>,
@@ -693,6 +718,37 @@ async fn create_workspace(
     {
         return Err(bad("This node does not have enough unallocated CPU or memory. Remove a workspace or choose another node."));
     }
+    if body.gpu_ids.len() > 8
+        || body
+            .gpu_ids
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            != body.gpu_ids.len()
+    {
+        return Err(bad("Choose up to eight distinct GPUs."));
+    }
+    for gpu in &body.gpu_ids {
+        if !node
+            .gpus
+            .iter()
+            .any(|g| &g.id == gpu && matches!(g.access.as_str(), "nvidia" | "dri"))
+        {
+            return Err(bad("This GPU is unavailable for workspace access. Refresh the node and check its drivers."));
+        }
+        if s.db
+            .workspaces
+            .iter()
+            .any(|w| w.node_id == node.id && w.gpu_ids.contains(gpu))
+        {
+            return Err(bad("This GPU is already assigned to another workspace. Remove that workspace to release it."));
+        }
+    }
+    if !body.gpu_ids.is_empty() && node.metrics.as_ref().is_none_or(|m| m.at + 30 < now()) {
+        return Err(bad(
+            "GPU detection is out of date. Wait for a fresh node sample.",
+        ));
+    }
     if body.network && !s.db.settings.allow_network {
         return Err(bad("Outbound networking is disabled in lab settings."));
     }
@@ -718,6 +774,9 @@ async fn create_workspace(
         last_used: now(),
         error: String::new(),
         network: body.network,
+        gpu_ids: body.gpu_ids,
+        metrics: None,
+        history: Vec::new(),
     };
     s.db.workspaces.push(w.clone());
     s.db.enqueue(w.clone(), "create", "");
@@ -828,6 +887,13 @@ async fn settings(
         crate::agent::validate_coordinator(&body.public_url)
             .map_err(|_| bad("Use an HTTPS URL, or HTTP on localhost."))?;
     }
+    if state
+        .remote_public_url
+        .as_ref()
+        .is_some_and(|url| url != &body.public_url)
+    {
+        return Err(bad("This address is managed by the cloud setup. Run the setup again on your server to change it."));
+    }
     let mut s = state.store.lock().await;
     s.db.settings = body;
     s.save()?;
@@ -876,6 +942,9 @@ async fn agent_enroll(
         docker: false,
         revoked: false,
         credential_hash: hash(&t),
+        gpus: Vec::new(),
+        metrics: None,
+        history: Vec::new(),
     };
     s.db.nodes.push(node.clone());
     s.db.event(&e.lab_id, format!("{} joined the lab", e.name), "node");
@@ -891,6 +960,10 @@ pub struct Heartbeat {
     pub ready: bool,
     #[serde(default)]
     pub containers: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub metrics: Option<Metrics>,
+    #[serde(default)]
+    pub workspace_metrics: std::collections::HashMap<String, Metrics>,
 }
 fn ready_by_default() -> bool {
     true
@@ -911,6 +984,36 @@ async fn agent_poll(
     n.docker = body.docker;
     n.cpu_usage = body.cpu_usage.clamp(0., 100.);
     n.memory_used_mb = body.memory_used_mb.min(n.memory_mb);
+    let received = now();
+    if let Some(mut m) = body
+        .metrics
+        .filter(|m| m.at <= received + 5 && m.at + 30 >= received)
+    {
+        m.at = m.at.min(received);
+        m.cpu_usage = m.cpu_usage.clamp(0., 100.);
+        m.memory_total_mb = n.memory_mb;
+        m.memory_used_mb = m.memory_used_mb.min(n.memory_mb);
+        m.gpus.truncate(32);
+        n.gpus = m.gpus.clone();
+        record_metrics(&mut n.history, &m);
+        n.metrics = Some(m);
+    }
+    for w in s.db.workspaces.iter_mut().filter(|w| w.node_id == node.id) {
+        if let Some(mut m) = body
+            .workspace_metrics
+            .get(&w.id)
+            .cloned()
+            .filter(|m| m.at <= received + 5 && m.at + 30 >= received)
+        {
+            m.at = m.at.min(received);
+            m.cpu_usage = (m.cpu_usage / w.cpus.max(1) as f32).clamp(0., 100.);
+            m.memory_total_mb = w.memory_mb;
+            m.memory_used_mb = m.memory_used_mb.min(w.memory_mb);
+            m.gpus.clear(); // Device-wide GPU readings are never presented as container measurements.
+            record_metrics(&mut w.history, &m);
+            w.metrics = Some(m);
+        }
+    }
     for w in s.db.workspaces.iter_mut().filter(|w| {
         body.ready && w.node_id == node.id && matches!(w.status.as_str(), "running" | "stopped")
     }) {
@@ -1014,6 +1117,139 @@ async fn agent_complete(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn gpu_allocation_and_telemetry_are_scoped_to_the_node() {
+        let directory = tempfile::tempdir().unwrap();
+        let state = create_state(
+            directory.path().to_path_buf(),
+            "http://{workspace}.localhost:8089".into(),
+        )
+        .await
+        .unwrap();
+        let lab = state.store.lock().await.db.labs[0].id.clone();
+        let node_id = id();
+        let secret = token();
+        let gpu = Gpu {
+            id: "GPU-test".into(),
+            name: "Test GPU".into(),
+            access: "nvidia".into(),
+            ..Default::default()
+        };
+        state.store.lock().await.db.nodes.push(Node {
+            id: node_id.clone(),
+            lab_id: lab.clone(),
+            name: "GPU node".into(),
+            platform: "Linux".into(),
+            arch: "x86_64".into(),
+            cpus: 8,
+            memory_mb: 8192,
+            cpu_usage: 0.,
+            memory_used_mb: 0,
+            last_seen: now(),
+            docker: true,
+            revoked: false,
+            credential_hash: hash(&secret),
+            gpus: vec![gpu.clone()],
+            metrics: Some(Metrics {
+                at: now(),
+                ..Default::default()
+            }),
+            history: vec![],
+        });
+        let actor = Actor {
+            role: "operator".into(),
+            lab_id: Some(lab.clone()),
+            session_hash: String::new(),
+        };
+        let body = |gpu_ids| NewWorkspace {
+            lab_id: lab.clone(),
+            node_id: node_id.clone(),
+            name: "GPU workspace".into(),
+            template: "terminal".into(),
+            cpus: 2,
+            memory_mb: 1024,
+            network: false,
+            gpu_ids,
+        };
+        assert!(create_workspace(
+            State(state.clone()),
+            Extension(actor.clone()),
+            Json(body(vec!["/dev/mem".into()]))
+        )
+        .await
+        .is_err());
+        let w = create_workspace(
+            State(state.clone()),
+            Extension(actor.clone()),
+            Json(body(vec![gpu.id.clone()])),
+        )
+        .await
+        .unwrap()
+        .0;
+        assert!(create_workspace(
+            State(state.clone()),
+            Extension(actor.clone()),
+            Json(body(vec![gpu.id.clone()]))
+        )
+        .await
+        .is_err());
+        let mut headers = HeaderMap::new();
+        headers.insert("authorization", format!("Bearer {secret}").parse().unwrap());
+        let sample = Metrics {
+            at: now(),
+            cpu_usage: 160.,
+            memory_used_mb: 256,
+            memory_total_mb: 9000,
+            ..Default::default()
+        };
+        let heartbeat = Heartbeat {
+            cpu_usage: 25.,
+            memory_used_mb: 300,
+            docker: true,
+            ready: false,
+            containers: Default::default(),
+            metrics: Some(Metrics {
+                gpus: vec![gpu],
+                ..sample.clone()
+            }),
+            workspace_metrics: [(w.id.clone(), sample.clone()), (id(), sample)]
+                .into_iter()
+                .collect(),
+        };
+        let _ = agent_poll(State(state.clone()), headers, Json(heartbeat))
+            .await
+            .unwrap();
+        let snapshot = snapshot(State(state.clone()), Extension(actor))
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(snapshot["workspaces"][0]["metrics"]["cpu_usage"], 80.);
+        assert_eq!(
+            snapshot["workspaces"][0]["metrics"]["memory_total_mb"],
+            1024
+        );
+        assert_eq!(snapshot["workspaces"][0]["metrics"]["gpus"], json!([]));
+        assert_eq!(
+            snapshot["workspaces"][0]["history"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(snapshot["nodes"][0].get("credential_hash").is_none());
+        assert_eq!(snapshot["nodes"][0]["history"].as_array().unwrap().len(), 1);
+        let outsider = Actor {
+            role: "viewer".into(),
+            lab_id: Some(id()),
+            session_hash: String::new(),
+        };
+        let snapshot = super::snapshot(State(state), Extension(outsider))
+            .await
+            .unwrap()
+            .0;
+        assert!(snapshot["nodes"].as_array().unwrap().is_empty());
+        assert!(snapshot["workspaces"].as_array().unwrap().is_empty());
+    }
     #[tokio::test]
     async fn desktop_bootstrap_sets_cookie_once_and_rejects_expiry() {
         let directory = tempfile::tempdir().unwrap();

@@ -11,6 +11,10 @@ Web / Tauri client ── HTTPS ──┬── lab.example.com → coordinator 
                        Node agents → isolated Docker workspaces
 ```
 
+## Automatic cloud VM hosting
+
+For a dedicated cloud VM that hosts both the dashboard and workspaces, use [cloud VM setup](cloud-access.md). It detects public IPs on AWS EC2, Google Cloud, Azure and DigitalOcean, or accepts a static IPv4 from another provider. The helper configures HTTPS, pairs the VM as a compute node, and lets visitors open its public IP to reach the secure dashboard. The same visual guide is available in **Settings → Set up cloud access**.
+
 ## Recommended free DNS option: DuckDNS
 
 You can use a free DuckDNS name instead of buying a domain or configuring another registrar’s DNS. The [complete DuckDNS setup](duckdns.md) covers all ten steps: registration, a private token file, automatic IP updates, Caddy with the DuckDNS plugin, one wildcard certificate, the CloudLab origin setting, router forwarding, and end-to-end checks.
