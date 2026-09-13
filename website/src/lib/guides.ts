@@ -296,12 +296,175 @@ export const guides: Guide[] = [
     ],
   },
   {
+    slug: "cli",
+    title: "Use the CloudLab CLI",
+    category: "Start here",
+    minutes: 6,
+    description:
+      "Start your lab, pair a node, read local status, and safely stop or reset an agent from your terminal.",
+    sections: [
+      {
+        id: "find-your-command",
+        title: "Find the command you need",
+        blocks: [
+          text(
+            "Run cloudlab to see the ASCII logo, command overview, and examples. It shows help without starting services. Add --help to any command for the options that apply to it.",
+          ),
+          code("cloudlab\ncloudlab agent --help\ncloudlab agent start --help"),
+          {
+            type: "table",
+            columns: ["Command", "What it does"],
+            rows: [
+              ["cloudlab serve", "Start the dashboard and workspace gateway."],
+              [
+                "cloudlab stop",
+                "Stop the coordinator; agents and containers remain running.",
+              ],
+              [
+                "cloudlab agent start",
+                "Resume the pairing saved in this agent's data folder.",
+              ],
+              [
+                "cloudlab agent status",
+                "Read local process and enrollment status.",
+              ],
+              [
+                "cloudlab agent status --json",
+                "Return credential-free local status as JSON for scripts.",
+              ],
+              [
+                "cloudlab agent stop",
+                "Stop the agent while keeping its pairing.",
+              ],
+              [
+                "cloudlab agent delete",
+                "Stop the agent, revoke its access, and remove its saved pairing.",
+              ],
+            ],
+          },
+        ],
+      },
+      {
+        id: "start-and-pair",
+        title: "Start a lab and pair a computer",
+        blocks: [
+          text(
+            "After building and installing CloudLab, run serve on the coordinator computer. Open the printed dashboard address and sign in using the owner key stored in its data folder.",
+          ),
+          code("cloudlab serve"),
+          text(
+            "In Compute nodes → Connect a node, generate a pairing command. Run it on the computer that will host your workspaces, with Docker running. For a node on the same computer as the coordinator:",
+          ),
+          code(
+            "cloudlab agent start --coordinator http://127.0.0.1:8088 --enrollment YOUR_ONE_TIME_KEY",
+          ),
+          text(
+            "The original cloudlab agent --coordinator URL --enrollment KEY form also works. Enrollment keys expire after 10 minutes and work once. Use an HTTPS coordinator address when pairing another computer.",
+          ),
+          links(
+            { label: "Build and install CloudLab", href: "/docs/quickstart/" },
+            { label: "Prepare a compute node", href: "/docs/nodes/" },
+          ),
+        ],
+      },
+      {
+        id: "everyday-use",
+        title: "Resume, check, and stop",
+        blocks: [
+          text(
+            "Use agent start to resume a saved pairing; the coordinator address is remembered. Run status or stop from a second terminal using the same working directory or the original --data-dir.",
+          ),
+          code("cloudlab agent start", "Resume your agent"),
+          code("cloudlab agent status", "Check local status"),
+          code("cloudlab agent stop", "Stop your agent"),
+          note(
+            "What stays running",
+            "Stopping the coordinator and stopping an agent are separate operations. Neither stops Docker workspaces. Stop or remove workspaces through the dashboard if needed. A service manager may restart an agent, so stop its service first when you want it to remain stopped.",
+          ),
+        ],
+      },
+      {
+        id: "reset-pairing",
+        title: "Fix “already enrolled”",
+        blocks: [
+          text(
+            "This message means the data folder already contains a pairing. To use that pairing, run cloudlab agent start without --enrollment. To replace it, delete the old pairing, then generate a new command in the dashboard.",
+          ),
+          code("cloudlab agent delete"),
+          text(
+            "Delete first stops the local agent, revokes its node access, and removes the local pairing and operation receipts. It also works when the node was already revoked. Docker containers and volumes are retained; manage them locally or remove workspaces before deleting their agent.",
+          ),
+          text(
+            "If the coordinator cannot be reached, normal deletion keeps the pairing so you can retry. The explicit local-only option clears it without contacting the coordinator; revoke the old node in the dashboard separately.",
+          ),
+          code("cloudlab agent delete --local-only"),
+          links({
+            label: "Node removal and recovery details",
+            href: "/docs/nodes/#reset-pairing",
+          }),
+        ],
+      },
+      {
+        id: "data-folders",
+        title: "Use the same data folder",
+        blocks: [
+          text(
+            "The coordinator defaults to .cloudlab; agents default to .cloudlab/agent, both relative to your working directory. Use the same agent folder for pairing, start, status, stop, and delete. --data-dir works before or after an agent subcommand.",
+          ),
+          code(
+            'cloudlab agent status --data-dir "/path/to/my agent"\ncloudlab agent stop --data-dir "/path/to/my agent"',
+          ),
+          {
+            type: "table",
+            columns: ["Environment variable", "Used for"],
+            rows: [
+              [
+                "CLOUDLAB_AGENT_DIR",
+                "Default data folder for all agent commands.",
+              ],
+              [
+                "CLOUDLAB_COORDINATOR",
+                "Coordinator address when starting an agent.",
+              ],
+              [
+                "CLOUDLAB_ENROLLMENT",
+                "One-time key when first pairing; unset it before resuming.",
+              ],
+              [
+                "CLOUDLAB_DATA_DIR",
+                "Coordinator data folder for serve and stop.",
+              ],
+              ["CLOUDLAB_BIND", "Coordinator address for serve and stop."],
+            ],
+          },
+        ],
+      },
+      {
+        id: "scripts-and-upgrades",
+        title: "Scripts and upgrades",
+        blocks: [
+          text(
+            "For scripts, agent status --json emits a single JSON object with scope, data_dir, process, enrollment, node_id, and coordinator. It never includes the pairing token. This describes the local process and saved files; it does not check whether the coordinator still accepts the node.",
+          ),
+          code("cloudlab agent status --json"),
+          text(
+            "Install the current CLI from the repository and restart the coordinator to pick up new API support. An agent started with an older binary must be stopped once using Ctrl+C in its terminal or its service manager before using the new stop command.",
+          ),
+          code("cargo install --locked --path crates/cloudlab --force"),
+          text(
+            "The logo appears in help and interactive startup. Redirected service logs and JSON status stay plain. Use cloudlab --version to check the installed release.",
+          ),
+        ],
+      },
+    ],
+  },
+  {
     slug: "nodes",
     title: "Connect your computers",
     category: "Build your lab",
     minutes: 6,
     description:
-      "Prepare compute nodes, enroll devices, and keep agents connected across restarts.",
+      "Pair your computers, check agent status, stop nodes, and reset an existing enrollment.",
     sections: [
       {
         id: "prepare-each-device",
@@ -353,11 +516,9 @@ export const guides: Guide[] = [
         title: "Restart without pairing again",
         blocks: [
           text(
-            "Enrollment exchanges the short-lived key for a device credential saved in the agent data directory. Restart with the same coordinator URL and the same data directory, without the enrollment flag.",
+            "Enrollment exchanges the short-lived key for a device credential saved in the agent data directory. Use agent start with that same directory to resume the saved pairing and coordinator address. Do not pass the enrollment flag again.",
           ),
-          code(
-            "cloudlab agent \\\n  --coordinator https://lab.example.com \\\n  --data-dir /var/lib/cloudlab-agent",
-          ),
+          code("cloudlab agent start --data-dir /var/lib/cloudlab-agent"),
           note(
             "Use the same path on the first run",
             "If you plan to use /var/lib/cloudlab-agent, also pass that --data-dir during enrollment and make it writable by the agent account. Omitting the flag uses .cloudlab/agent relative to the working directory. Never copy an enrolled agent directory to another device.",
@@ -365,6 +526,81 @@ export const guides: Guide[] = [
           text(
             "For an always-on Linux node, adapt deploy/cloudlab-agent.service to your binary path, user, coordinator URL, and data directory. Run one agent per physical device in normal operation.",
           ),
+        ],
+      },
+      {
+        id: "cli-commands",
+        title: "Agent commands at a glance",
+        blocks: [
+          text(
+            "Run cloudlab --help for the ASCII logo, command overview, and examples. Each command also supports --help. Your existing cloudlab agent --coordinator URL pairing commands still work.",
+          ),
+          {
+            type: "table",
+            columns: ["Command", "Result"],
+            rows: [
+              ["cloudlab serve", "Start the dashboard and workspace gateway."],
+              [
+                "cloudlab stop",
+                "Stop the coordinator; agents and containers keep running.",
+              ],
+              [
+                "cloudlab agent start",
+                "Resume the pairing saved in this data folder.",
+              ],
+              [
+                "cloudlab agent status",
+                "Show local process and enrollment status without displaying keys.",
+              ],
+              [
+                "cloudlab agent stop",
+                "Stop the local agent and keep its pairing.",
+              ],
+              [
+                "cloudlab agent delete",
+                "Stop the agent, revoke node access, and clear its local pairing and operation receipts.",
+              ],
+              [
+                "cloudlab agent delete --local-only",
+                "Clear local pairing without contacting the coordinator. Revoke the old node separately.",
+              ],
+            ],
+          },
+          note(
+            "Keep the same data folder",
+            "All agent commands use .cloudlab/agent relative to the current folder by default. Pass the original --data-dir, or set CLOUDLAB_AGENT_DIR, for start, status, stop, and delete. These commands do not delete Docker containers or volumes. Status describes the local process; it does not confirm that the coordinator still accepts the node.",
+          ),
+          code(
+            "cloudlab agent status --data-dir /var/lib/cloudlab-agent\ncloudlab agent stop --data-dir /var/lib/cloudlab-agent\ncloudlab agent start --data-dir /var/lib/cloudlab-agent",
+          ),
+        ],
+      },
+      {
+        id: "reset-pairing",
+        title: "Reset a pairing or delete an agent",
+        blocks: [
+          text(
+            "If the CLI says This agent is already enrolled, use cloudlab agent start to resume it. If you want a new pairing, first remove the old enrollment using the command below.",
+          ),
+          code("cloudlab agent delete"),
+          text(
+            "Then generate a fresh command in Compute nodes → Connect a node and run it in the same folder. The old one-time key may have expired. Deletion also handles a node that has already been revoked.",
+          ),
+          code(
+            "cloudlab agent --coordinator http://127.0.0.1:8088 --enrollment YOUR_NEW_ONE_TIME_KEY",
+          ),
+          text(
+            "Normal deletion contacts the saved coordinator and revokes only this node. If the coordinator is unreachable, credentials are kept so you can retry. Use the explicit local-only option when you need to reset locally, then revoke the old node in the dashboard separately.",
+          ),
+          code("cloudlab agent delete --local-only"),
+          note(
+            "Keep your workspace data",
+            "Containers and volumes stay on the node. Remove active workspaces before deleting their agent, or manage their Docker resources locally afterward. A workspace on a revoked node has a separate Remove workspace record action; it does not delete Docker resources.",
+          ),
+          text(
+            "Upgrade with the command below, and restart the coordinator with the updated binary. Stop agents started with an older binary once using Ctrl+C in their terminal or their service manager. If a service automatically restarts the agent, stop that service before deleting its pairing.",
+          ),
+          code("cargo install --locked --path crates/cloudlab --force"),
         ],
       },
       {
@@ -1152,6 +1388,11 @@ export const guides: Guide[] = [
             "Confirm the HTTPS address and certificate are valid from the node. An HTTP LAN IP is not accepted.",
             "Check proxy support for WebSocket upgrades and whether a firewall blocks outbound HTTPS.",
           ),
+          code("cloudlab agent status\ncloudlab agent start"),
+          links({
+            label: "Already enrolled? Stop or reset the agent",
+            href: "/docs/nodes/#reset-pairing",
+          }),
         ],
       },
       {

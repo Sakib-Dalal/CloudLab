@@ -257,6 +257,7 @@ pub fn router(state: AppState, web: PathBuf) -> Router {
             }),
         )
         .route("/agent/enroll", post(agent_enroll))
+        .route("/agent/unenroll", post(agent_unenroll))
         .route("/agent/poll", post(agent_poll))
         .route("/agent/jobs/{id}", post(agent_complete))
         .route("/agent/tunnel", get(crate::relay::agent_tunnel));
@@ -913,7 +914,10 @@ async fn workspace_action(
     Json(body): Json<Action>,
 ) -> Result<Json<Value>> {
     actor.operate()?;
-    if !matches!(body.action.as_str(), "start" | "stop" | "delete" | "exec") {
+    if !matches!(
+        body.action.as_str(),
+        "start" | "stop" | "delete" | "forget" | "exec"
+    ) {
         return Err(bad("Unsupported workspace action."));
     }
     if body.command.len() > 4096 {
@@ -927,15 +931,71 @@ async fn workspace_action(
             .cloned()
             .ok_or_else(missing)?;
     actor.lab(&w.lab_id)?;
-    if !s
-        .db
-        .nodes
-        .iter()
-        .any(|n| n.id == w.node_id && !n.revoked && n.last_seen + 45 > now())
-    {
-        return Err(bad("The compute node is offline or revoked."));
+    if body.action == "forget" {
+        if s.db.nodes.iter().any(|n| n.id == w.node_id && !n.revoked) {
+            return Err(bad(
+                "This node is still enrolled. Use container removal so its agent can clean up.",
+            ));
+        }
+        // A revoked node cannot execute cleanup. Forgetting is an explicit
+        // record-only action; never report that its Docker resources were removed.
+        for j in
+            s.db.jobs.iter_mut().filter(|j| {
+                j.workspace.id == id && matches!(j.status.as_str(), "queued" | "leased")
+            })
+        {
+            j.status = "failed".into();
+            j.error =
+                "Workspace record removed after node revocation. Local cleanup may be needed."
+                    .into();
+        }
+        s.db.workspaces.retain(|w| w.id != id);
+        s.db.app_sessions
+            .retain(|session| session.workspace_id != id);
+        s.db.event(
+            &w.lab_id,
+            format!(
+                "{}: workspace record removed; any container and volume remain on the revoked node",
+                w.name
+            ),
+            "workspace",
+        );
+        s.save()?;
+        return Ok(Json(json!({"removed":true})));
     }
-    if s.db
+    let node =
+        s.db.nodes
+            .iter()
+            .find(|n| n.id == w.node_id && !n.revoked)
+            .ok_or_else(|| {
+                bad("The compute node was revoked. Remove its container locally on the node.")
+            })?;
+    if body.action != "delete" && node.last_seen + 45 <= now() {
+        return Err(bad(
+            "The compute node is offline. Restart its CloudLab agent and try again.",
+        ));
+    }
+    if body.action == "delete" {
+        // Removal can wait for a disconnected node and supersedes work that has
+        // not started. Keep leased jobs until completion so Docker operations
+        // remain serialized, and reuse a pending delete on repeated requests.
+        if let Some(j) = s.db.jobs.iter().find(|j| {
+            j.workspace.id == id
+                && j.action == "delete"
+                && matches!(j.status.as_str(), "queued" | "leased")
+        }) {
+            return Ok(Json(json!({"id":j.id})));
+        }
+        for j in
+            s.db.jobs
+                .iter_mut()
+                .filter(|j| j.workspace.id == id && j.status == "queued")
+        {
+            j.status = "failed".into();
+            j.error = "Cancelled because container removal was requested.".into();
+        }
+    } else if s
+        .db
         .jobs
         .iter()
         .any(|j| j.workspace.id == id && matches!(j.status.as_str(), "queued" | "leased"))
@@ -950,6 +1010,7 @@ async fn workspace_action(
     }
     let row = s.db.workspaces.iter_mut().find(|w| w.id == id).unwrap();
     row.last_used = now();
+    row.error.clear();
     row.status = match body.action.as_str() {
         "start" => "starting",
         "stop" => "stopping",
@@ -1063,6 +1124,27 @@ async fn agent_enroll(
     s.save()?;
     Ok(Json(json!({"id":node.id,"token":t})))
 }
+async fn agent_unenroll(State(state): State<AppState>, headers: HeaderMap) -> Result<Json<Value>> {
+    let node = agent_node(&state, &headers).await?;
+    let mut store = state.store.lock().await;
+    let row = store
+        .db
+        .nodes
+        .iter_mut()
+        .find(|n| n.id == node.id && !n.revoked)
+        .ok_or_else(unauthorized)?;
+    row.revoked = true;
+    store.db.event(
+        &node.lab_id,
+        format!("{} access revoked by its local agent", node.name),
+        "node",
+    );
+    store.save()?;
+    drop(store);
+    state.relay.disconnect(&node.id).await;
+    Ok(Json(json!({"revoked":true})))
+}
+
 #[derive(Deserialize)]
 pub struct Heartbeat {
     pub cpu_usage: f32,
@@ -1148,20 +1230,24 @@ async fn agent_poll(
         j.error =
             "Command outcome is unknown after the node disconnected. It was not replayed.".into();
     }
-    let job =
-        s.db.jobs
-            .iter_mut()
-            .find(|j| {
-                body.ready
-                    && j.node_id == node.id
-                    && (j.status == "queued"
-                        || (j.status == "leased" && j.lease_until < now() && j.action != "exec"))
+    let next_job = s.db.jobs.iter().position(|j| {
+        body.ready
+            && body.docker
+            && j.node_id == node.id
+            && (j.status == "queued"
+                || (j.status == "leased" && j.lease_until < now() && j.action != "exec"))
+            && !s.db.jobs.iter().any(|other| {
+                other.workspace.id == j.workspace.id
+                    && other.id != j.id
+                    && other.status == "leased"
+                    && other.lease_until >= now()
             })
-            .map(|j| {
-                j.status = "leased".into();
-                j.lease_until = now() + 900;
-                j.clone()
-            });
+    });
+    let job = next_job.map(|index| &mut s.db.jobs[index]).map(|j| {
+        j.status = "leased".into();
+        j.lease_until = now() + 900;
+        j.clone()
+    });
     s.save()?;
     Ok(Json(json!({"job":job})))
 }
@@ -1196,11 +1282,18 @@ async fn agent_complete(
     j.output = body.output;
     j.error = body.error.clone();
     let j = j.clone();
+    let removal_pending = s.db.jobs.iter().any(|other| {
+        other.workspace.id == j.workspace.id
+            && other.action == "delete"
+            && matches!(other.status.as_str(), "queued" | "leased")
+    });
     if j.action != "exec" {
         if body.ok && j.action == "delete" {
             s.db.workspaces.retain(|w| w.id != j.workspace.id);
         } else if let Some(w) = s.db.workspaces.iter_mut().find(|w| w.id == j.workspace.id) {
-            w.status = if !body.ok {
+            w.status = if removal_pending {
+                "deleting"
+            } else if !body.ok {
                 "error"
             } else if j.action == "stop" {
                 "stopped"
@@ -1208,7 +1301,11 @@ async fn agent_complete(
                 "running"
             }
             .into();
-            w.error = body.error;
+            w.error = if removal_pending {
+                String::new()
+            } else {
+                body.error
+            };
             w.last_used = now();
         }
     }
@@ -1225,6 +1322,9 @@ async fn agent_complete(
     s.save()?;
     Ok(Json(json!({"ok":true})))
 }
+
+#[cfg(test)]
+mod workspace_action_tests;
 
 #[cfg(test)]
 mod tests {

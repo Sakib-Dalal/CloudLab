@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowUpRight, Search, Clock, ArrowRight } from "@lucide/svelte";
   import SEO from "$lib/components/SEO.svelte";
+  import CliPreview from "$lib/components/CliPreview.svelte";
   import { categories, searchGuides } from "$lib/guides";
   let query = $state("");
   const matches = $derived(searchGuides(query));
@@ -29,6 +30,13 @@
     </div>
     <span class="start-card-number">01<span>START HERE</span></span></a
   >
+  <CliPreview />
+  <nav class="docs-shortcuts" aria-label="Common CLI help">
+    <a href="/docs/cli/">CLI command reference <ArrowRight size={16} /></a>
+    <a href="/docs/nodes/#reset-pairing"
+      >Already enrolled? Reset your node <ArrowRight size={16} /></a
+    >
+  </nav>
   <label class="search-field docs-filter"
     ><Search size={19} /><input
       type="search"
@@ -64,3 +72,20 @@
       >
     </div>{/if}
 </div>
+
+<style>
+  .docs-shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin: 24px 0;
+  }
+  .docs-shortcuts a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+</style>

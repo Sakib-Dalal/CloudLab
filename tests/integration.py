@@ -221,8 +221,28 @@ def main():
                     print(f"PASS {template} gateway, one-time ticket, isolated origin and authentication", flush=True)
                     assert action(app, "delete")["status"] == "done"
 
+            # Local agent stop keeps the running container and the saved pairing.
+            subprocess.run([str(BIN), "agent", "stop", "--data-dir", str(directory / "node-0")], check=True)
+            processes[1].wait(timeout=10)
+            assert json.loads(docker("inspect", f"cloudlab-{wid}"))[0]["State"]["Running"]
+            processes[1] = subprocess.Popen([str(BIN), "agent", "start", "--data-dir", str(directory / "node-0")], stdout=log, stderr=log)
+            wait_for(lambda: (directory / "node-0/agent-run").exists())
             assert action(wid, "delete")["status"] == "done"
             assert docker("volume", "inspect", f"cloudlab-{wid}-home")
+            # Delete enrollment revokes only this node and permits a fresh pairing
+            # in the same directory. No workspace volume is removed by the CLI.
+            subprocess.run([str(BIN), "agent", "delete", "--data-dir", str(directory / "node-0")], check=True)
+            processes[1].wait(timeout=10)
+            assert not (directory / "node-0/credentials.json").exists()
+            assert next(n for n in api.call("/state")["nodes"] if n["id"] == node_ids[0])["revoked"]
+            assert not next(n for n in api.call("/state")["nodes"] if n["id"] == node_ids[1])["revoked"]
+            assert docker("volume", "inspect", f"cloudlab-{wid}-home")
+            enrollment = api.call("/enrollments", {"lab_id": lab, "name": "Repaired node"})["token"]
+            processes[1] = subprocess.Popen([str(BIN), "agent", "--coordinator", origin, "--data-dir", str(directory / "node-0")], env=dict(os.environ, CLOUDLAB_ENROLLMENT=enrollment), stdout=log, stderr=log)
+            repaired = wait_for(lambda: next((n for n in api.call("/state")["nodes"] if n["name"] == "Repaired node" and n["docker"]), None))
+            assert repaired["id"] not in node_ids
+            node_ids.append(repaired["id"])
+            print("PASS agent stop, saved-pairing resume, enrollment deletion, scoped revocation, same-folder re-pairing, retained volume", flush=True)
             access_id = next(a["id"] for a in api.call("/state")["access"] if a["name"] == "Viewer")
             api.call(f"/access/{access_id}", {}, "DELETE")
             viewer.call("/state", expected=401)

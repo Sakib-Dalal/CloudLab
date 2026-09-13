@@ -1,4 +1,5 @@
 <script lang="ts">
+  import CliPreview from "$lib/components/CliPreview.svelte";
   import {
     ArrowRight,
     ArrowUpRight,
@@ -320,6 +321,8 @@
       </li>
     </ol>
   </section>
+
+  <div class="container"><CliPreview /></div>
 
   <section class="ownership-section container">
     <div class="ownership-copy">

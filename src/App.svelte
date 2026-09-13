@@ -170,6 +170,15 @@
       analyticsWorkspace = "";
   });
   const online = $derived(nodes.filter((n) => clock - n.last_seen < 45));
+  const activeWorkspaceOnline = $derived(
+    online.some((n) => n.id === activeWorkspace?.node_id),
+  );
+  const activeWorkspaceNode = $derived(
+    data?.nodes.find((n) => n.id === activeWorkspace?.node_id),
+  );
+  const activeWorkspaceRevoked = $derived(
+    !!activeWorkspace && (!activeWorkspaceNode || activeWorkspaceNode.revoked),
+  );
   const running = $derived(
     workspaces.filter(
       (w) => w.status === "running" && online.some((n) => n.id === w.node_id),
@@ -224,7 +233,10 @@
       if (activeWorkspace) {
         activeWorkspace =
           data.workspaces.find((w) => w.id === activeWorkspace?.id) || null;
-        if (!activeWorkspace && modal === "console") {
+        if (
+          !activeWorkspace &&
+          ["console", "workspace-detail", "delete"].includes(modal)
+        ) {
           modal = "";
           notify("This workspace is no longer available.");
         }
@@ -369,9 +381,10 @@
   }
   async function action(w: Workspace, action: string) {
     busy = true;
+    modalError = "";
     try {
       if (demo) {
-        if (action === "delete")
+        if (action === "delete" || action === "forget")
           data!.workspaces = data!.workspaces.filter((x) => x.id !== w.id);
         else w.status = action === "start" ? "running" : "stopped";
       } else {
@@ -380,12 +393,17 @@
       }
       if (modal === "delete") modal = "";
       notify(
-        action === "delete"
-          ? "Container removal queued. Volume data is retained."
-          : `Workspace ${action} requested`,
+        action === "forget"
+          ? "Workspace record removed. Any remaining container and volume stay on the node."
+          : action === "delete"
+            ? online.some((n) => n.id === w.node_id)
+              ? "Container removal queued. Volume data is retained."
+              : "Removal queued until the node reconnects. Volume data is retained."
+            : `Workspace ${action} requested`,
       );
     } catch (e) {
-      notify((e as Error).message);
+      if (modal === "delete") modalError = (e as Error).message;
+      else notify((e as Error).message);
     } finally {
       busy = false;
     }
@@ -1459,6 +1477,11 @@
                 : "This key is shown once. You can revoke it at any time."}
             </p>
           </div>
+          {#if modal === "node"}<p class="hint">
+              Already enrolled? Use <code>cloudlab agent start</code> to resume.
+              To pair again, run <code>cloudlab agent delete</code> with the same
+              data folder, then generate a fresh pairing command.
+            </p>{/if}
           <button class="primary full" onclick={() => (modal = "")}
             >Done <Check size={17} /></button
           >
@@ -1644,6 +1667,17 @@
             navigate("Workspaces");
           }}>View workspace analytics <ArrowRight size={15} /></button
         >
+        {#if activeWorkspaceRevoked}<p class="hint">
+            This node's access was revoked. You can remove this workspace record
+            from CloudLab; any container and saved volume remain on the node.
+          </p>{:else if activeWorkspace.status === "deleting"}<p
+            class="hint"
+            role="status"
+          >
+            {activeWorkspaceOnline
+              ? "Removal is queued. Any operation already running will finish first."
+              : `Removal is queued. Restart the CloudLab agent on ${nodeName(activeWorkspace.node_id)} to finish removing this container.`}
+          </p>{/if}
         {#if activeWorkspace.error}<div class="inline-error">
             {activeWorkspace.error}
           </div>{/if}{#if canOperate}<div class="detail-actions">
@@ -1671,25 +1705,59 @@
                 }}><Play size={16} />Resume</button
               >{/if}<button
               class="text-button danger"
-              onclick={() => (modal = "delete")}
-              ><Trash2 size={16} />Remove container</button
+              disabled={busy ||
+                (activeWorkspace.status === "deleting" &&
+                  !activeWorkspaceRevoked)}
+              onclick={() => {
+                modalError = "";
+                modal = "delete";
+              }}
+              ><Trash2 size={16} />{activeWorkspaceRevoked
+                ? "Remove workspace record"
+                : activeWorkspace.status === "deleting"
+                  ? "Removal queued"
+                  : "Remove container"}</button
             >
           </div>{/if}
       {:else if modal === "delete" && activeWorkspace}<h2>
-          Remove this workspace?
+          {activeWorkspaceRevoked
+            ? "Remove this workspace record?"
+            : "Remove this workspace?"}
         </h2>
         <p class="modal-intro">
-          The container for <strong>{activeWorkspace.name}</strong> will be removed.
-          Its Docker volume is retained on the node for manual recovery.
+          {#if activeWorkspaceRevoked}
+            <strong>{activeWorkspace.name}</strong> will be removed from CloudLab.
+            This node's access was revoked, so CloudLab cannot remove its container.
+            Any remaining container must be removed locally; its saved volume stays
+            on the node.
+          {:else}
+            The container for <strong>{activeWorkspace.name}</strong> will be removed.
+            Its Docker volume is retained on the node for manual recovery.
+          {/if}
         </p>
+        {#if !activeWorkspaceOnline && !activeWorkspaceRevoked}<p class="hint">
+            {nodeName(activeWorkspace.node_id)} is offline. Removal will be queued
+            until its CloudLab agent reconnects.
+          </p>{/if}
+        {#if modalError}<div class="inline-error" role="alert">
+            {modalError}
+          </div>{/if}
         <div class="detail-actions">
           <button class="secondary" onclick={() => (modal = "workspace-detail")}
             >Keep workspace</button
           ><button
             class="primary"
             disabled={busy}
-            onclick={() => action(activeWorkspace!, "delete")}
-            ><Trash2 size={16} />Remove container</button
+            onclick={() =>
+              action(
+                activeWorkspace!,
+                activeWorkspaceRevoked ? "forget" : "delete",
+              )}
+            ><Trash2 size={16} />{busy
+              ? "Removing…"
+              : activeWorkspaceRevoked
+                ? "Remove workspace record"
+                : "Remove container"}</button
           >
         </div>
       {:else if modal === "node-detail"}{@const n = nodes.find(

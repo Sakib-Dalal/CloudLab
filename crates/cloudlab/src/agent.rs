@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+mod lifecycle;
+pub use lifecycle::{coordinator, delete, status, stop};
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Credentials {
     pub id: String,
@@ -40,6 +42,25 @@ pub async fn run(
     dir: PathBuf,
     allow_network: bool,
 ) -> anyhow::Result<()> {
+    let control = lifecycle::RunningAgent::start(&dir)?;
+    let mut tasks = tokio::task::JoinSet::new();
+    let result = tokio::select! {
+        result = run_session(coordinator, enrollment, dir, allow_network, &mut tasks) => result,
+        result = control.wait_for_stop() => result.map(|()| {
+            println!("CloudLab agent stopped. Enrollment, containers, and volumes are retained.");
+        }),
+    };
+    tasks.shutdown().await;
+    result
+}
+
+async fn run_session(
+    coordinator: String,
+    enrollment: Option<String>,
+    dir: PathBuf,
+    allow_network: bool,
+    tasks: &mut tokio::task::JoinSet<()>,
+) -> anyhow::Result<()> {
     let coordinator = validate_coordinator(&coordinator)?
         .as_str()
         .trim_end_matches('/')
@@ -55,7 +76,7 @@ pub async fn run(
     let credentials = if path.exists() {
         anyhow::ensure!(
             enrollment.is_none(),
-            "This agent is already enrolled. Use a different --data-dir to enroll another node."
+            "This agent is already enrolled. To restart it, omit --enrollment. To pair it again, run cloudlab agent delete with the same --data-dir first, then use a fresh pairing command."
         );
         let c: Credentials = serde_json::from_slice(&std::fs::read(&path)?)?;
         anyhow::ensure!(
@@ -88,7 +109,7 @@ pub async fn run(
         credentials.id
     );
     let c = credentials.clone();
-    tokio::spawn(async move {
+    tasks.spawn(async move {
         loop {
             if let Err(e) = agent_connection(c.clone()).await {
                 eprintln!("Workspace relay disconnected: {e}");
@@ -103,7 +124,7 @@ pub async fn run(
     )));
     let collected = samples.clone();
     let telemetry_node = credentials.id.clone();
-    tokio::spawn(async move {
+    tasks.spawn(async move {
         let mut system = sysinfo::System::new_all();
         let mut networks = sysinfo::Networks::new_with_refreshed_list();
         loop {
@@ -130,6 +151,7 @@ pub async fn run(
     });
     let working = Arc::new(Mutex::new(false));
     loop {
+        while tasks.try_join_next().is_some() {}
         system.refresh_cpu_usage();
         system.refresh_memory();
         let docker = sandbox::available().await;
@@ -150,7 +172,7 @@ pub async fn run(
                 Ok(response) if response.status().is_success()=>{
                     let value:Value=response.json().await?;
                     if !value["job"].is_null(){let job:Job=serde_json::from_value(value["job"].clone())?;*working.lock().await=true;let done=working.clone();let client=client.clone();let credentials=credentials.clone();let dir=dir.clone();
-                        tokio::spawn(async move{
+                        tasks.spawn(async move{
                             let receipt=dir.join(format!("receipt-{}.json",job.id));
                             let result=if receipt.exists(){std::fs::read(&receipt).ok().and_then(|v|serde_json::from_slice::<Value>(&v).ok())}else{None};
                             let result=if let Some(result)=result{result}else{
@@ -163,7 +185,7 @@ pub async fn run(
                         });
                     }
                 },
-                Ok(response) if response.status()==reqwest::StatusCode::UNAUTHORIZED=>anyhow::bail!("This node's credential was revoked. Stop its containers locally before enrolling again."),
+                Ok(response) if response.status()==reqwest::StatusCode::UNAUTHORIZED=>anyhow::bail!("This node's credential was revoked. Run cloudlab agent delete with the same --data-dir, then generate a fresh pairing command. Existing containers and volumes must be managed locally."),
                 Ok(response)=>eprintln!("Coordinator returned {}",response.status()),
                 Err(e)=>eprintln!("Coordinator unavailable: {e}"),
             }

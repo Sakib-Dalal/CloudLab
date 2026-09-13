@@ -6,7 +6,7 @@ The interface uses `#BF4646`, `#EDDCC6`, `#FFF4EA`, and `#7EACB5`, with locally 
 
 ## Public website and documentation
 
-The public SvelteKit website lives in [`website/`](website/README.md), separately from the private lab dashboard. It includes the product overview, an interactive lab diagram, searchable documentation, 14 step-by-step guides, copyable commands, FAQs, security details, and project information.
+The public SvelteKit website lives in [`website/`](website/README.md), separately from the private lab dashboard. It includes the product overview, an interactive lab diagram, searchable documentation, 15 step-by-step guides, copyable commands, FAQs, security details, and project information.
 
 ```sh
 npm ci --prefix website
@@ -57,9 +57,30 @@ In **Compute nodes → Connect a node**, generate a one-time pairing command. Ru
 cloudlab agent --coordinator http://127.0.0.1:8088 --enrollment YOUR_ONE_TIME_KEY
 ```
 
-For other computers, configure an HTTPS coordinator address first (see [remote access](docs/remote-access.md)). Enrollment expires in 10 minutes and can only be used once. Afterwards, restart the agent with the same coordinator and data directory, **without** `--enrollment`. One agent process represents one enrolled compute node; use one agent per physical device in normal operation.
+For other computers, configure an HTTPS coordinator address first (see [remote access](docs/remote-access.md)). Enrollment expires in 10 minutes and can only be used once. Afterwards, use `cloudlab agent start` with the same data directory to resume the saved pairing. The original `cloudlab agent --coordinator URL` syntax also works **without** `--enrollment`. One agent process represents one enrolled compute node; use one agent per physical device in normal operation.
 
 Create a workspace, choose its node and resource budget, and open it. The node must already have the selected `cloudlab/terminal:2`, `cloudlab/jupyter:2`, or `cloudlab/code:2` image. There is no automatic arbitrary-image pull and no host shell endpoint.
+
+### CLI commands
+
+Run `cloudlab` or `cloudlab --help` for the CloudLab ASCII logo, command overview, and examples. Running `cloudlab` with no arguments shows help without starting services. The logo also appears when starting a coordinator or agent in an interactive terminal; redirected service logs stay plain. The [CLI guide](https://cloudlab-alpha.vercel.app/docs/cli/) includes command examples, data folders, environment variables, and pairing recovery.
+
+| Command | What it does |
+| --- | --- |
+| `cloudlab serve` | Start the dashboard and workspace gateway |
+| `cloudlab stop` | Stop the coordinator; agents and containers keep running |
+| `cloudlab agent start` | Start using the saved pairing and coordinator address |
+| `cloudlab agent status` | Show local process and pairing status without displaying keys |
+| `cloudlab agent status --json` | Return local status as JSON for scripts, without credentials |
+| `cloudlab agent stop` | Stop the agent; keep its pairing, containers, and volumes |
+| `cloudlab agent delete` | Stop the agent, revoke its node access, and remove local pairing and operation receipts |
+| `cloudlab agent delete --local-only` | Clear local pairing without contacting the coordinator; revoke the old node in the dashboard separately |
+
+Agent commands use `.cloudlab/agent` relative to the current directory. Use the original `--data-dir` (or `CLOUDLAB_AGENT_DIR`) for every command, for example `cloudlab agent stop --data-dir /var/lib/cloudlab-agent`. Deleting agent enrollment never deletes Docker containers or volumes. Remove workspaces before deleting an active node; afterward, workspaces on that revoked node offer **Remove workspace record** in the dashboard, with Docker cleanup performed locally.
+
+If you see **This agent is already enrolled**, omit `--enrollment` to resume it. To replace the pairing, run `cloudlab agent delete`, generate a fresh key in **Compute nodes → Connect a node**, and run that new pairing command. If the coordinator is unreachable, normal deletion keeps the credentials so you can retry; `--local-only` deliberately skips remote revocation. The delete command also works when the old node has already been revoked.
+
+Install the updated CLI with `cargo install --locked --path crates/cloudlab --force`, and restart the coordinator with the updated binary for agent deletion support. An agent started with an older binary must be stopped once in its original terminal with Ctrl+C or through its service manager. For a service-managed agent, stop its service first so an automatic restart does not undo your stop.
 
 ### Development
 

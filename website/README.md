@@ -1,6 +1,6 @@
 # CloudLab public website
 
-A standalone, prerendered SvelteKit site for the CloudLab product and documentation. Uses the same burgundy, sand, cream, and blue palette as the lab app, with local fonts, responsive layouts, local documentation search, an interactive explanatory lab diagram, copyable commands, OS command selectors, FAQs, and 14 guides.
+A standalone, prerendered SvelteKit site for the CloudLab product and documentation. Uses the same burgundy, sand, cream, and blue palette as the lab app, with local fonts, responsive layouts, local documentation search, an interactive explanatory lab diagram, copyable commands, OS command selectors, FAQs, and 15 guides.
 
 ```sh
 npm ci --prefix website
