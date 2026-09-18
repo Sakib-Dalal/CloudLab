@@ -236,6 +236,7 @@ pub fn router(state: AppState, web: PathBuf) -> Router {
         .route("/enrollments", post(enrollment))
         .route("/nodes/{id}", delete(revoke_node))
         .route("/workspaces", post(create_workspace))
+        .route("/workspaces/{id}", put(update_workspace))
         .route("/workspaces/{id}/actions", post(workspace_action))
         .route("/workspaces/{id}/open", post(crate::relay::open_workspace))
         .route("/jobs/{id}", get(job))
@@ -821,50 +822,18 @@ async fn create_workspace(
     if node.last_seen + 45 < now() || !node.docker {
         return Err(bad("Choose an online node with Docker available."));
     }
-    let existing: Vec<_> =
-        s.db.workspaces
-            .iter()
-            .filter(|w| w.node_id == node.id && w.status != "deleting")
-            .collect();
-    if existing.iter().map(|w| w.cpus).sum::<u32>() + body.cpus > node.cpus
-        || existing.iter().map(|w| w.memory_mb).sum::<u64>() + body.memory_mb > node.memory_mb
-    {
-        return Err(bad("This node does not have enough unallocated CPU or memory. Remove a workspace or choose another node."));
-    }
-    if body.gpu_ids.len() > 8
-        || body
-            .gpu_ids
-            .iter()
-            .collect::<std::collections::HashSet<_>>()
-            .len()
-            != body.gpu_ids.len()
-    {
-        return Err(bad("Choose up to eight distinct GPUs."));
-    }
-    for gpu in &body.gpu_ids {
-        if !node
-            .gpus
-            .iter()
-            .any(|g| &g.id == gpu && matches!(g.access.as_str(), "nvidia" | "dri"))
-        {
-            return Err(bad("This GPU is unavailable for workspace access. Refresh the node and check its drivers."));
-        }
-        if s.db
-            .workspaces
-            .iter()
-            .any(|w| w.node_id == node.id && w.gpu_ids.contains(gpu))
-        {
-            return Err(bad("This GPU is already assigned to another workspace. Remove that workspace to release it."));
-        }
-    }
-    if !body.gpu_ids.is_empty() && node.metrics.as_ref().is_none_or(|m| m.at + 30 < now()) {
-        return Err(bad(
-            "GPU detection is out of date. Wait for a fresh node sample.",
-        ));
-    }
-    if body.network && !s.db.settings.allow_network {
-        return Err(bad("Outbound networking is disabled in lab settings."));
-    }
+    validate_workspace_resources(
+        &s.db,
+        node,
+        &WorkspaceProperties {
+            name: body.name.clone(),
+            cpus: body.cpus,
+            memory_mb: body.memory_mb,
+            network: body.network,
+            gpu_ids: body.gpu_ids.clone(),
+        },
+        None,
+    )?;
     if s.db
         .workspaces
         .iter()
@@ -901,6 +870,162 @@ async fn create_workspace(
     s.save()?;
     Ok(Json(w))
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorkspaceProperties {
+    name: String,
+    cpus: u32,
+    memory_mb: u64,
+    network: bool,
+    gpu_ids: Vec<String>,
+}
+
+fn validate_workspace_resources(
+    db: &Database,
+    node: &Node,
+    config: &WorkspaceProperties,
+    exclude: Option<&str>,
+) -> Result<()> {
+    let existing: Vec<_> = db
+        .workspaces
+        .iter()
+        .filter(|w| w.node_id == node.id && Some(w.id.as_str()) != exclude)
+        .collect();
+    if existing.iter().map(|w| w.cpus).sum::<u32>() + config.cpus > node.cpus
+        || existing.iter().map(|w| w.memory_mb).sum::<u64>() + config.memory_mb > node.memory_mb
+    {
+        return Err(bad("This node does not have enough unallocated CPU or memory. Remove a workspace or choose another node."));
+    }
+    if config.gpu_ids.len() > 8
+        || config
+            .gpu_ids
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            != config.gpu_ids.len()
+    {
+        return Err(bad("Choose up to eight distinct GPUs."));
+    }
+    for gpu in &config.gpu_ids {
+        if !node
+            .gpus
+            .iter()
+            .any(|g| &g.id == gpu && matches!(g.access.as_str(), "nvidia" | "dri"))
+        {
+            return Err(bad("This GPU is unavailable for workspace access. Refresh the node and check its drivers."));
+        }
+        if db.workspaces.iter().any(|w| {
+            w.node_id == node.id && Some(w.id.as_str()) != exclude && w.gpu_ids.contains(gpu)
+        }) {
+            return Err(bad("This GPU is already assigned to another workspace. Remove that workspace to release it."));
+        }
+    }
+    if !config.gpu_ids.is_empty() && node.metrics.as_ref().is_none_or(|m| m.at + 30 < now()) {
+        return Err(bad(
+            "GPU detection is out of date. Wait for a fresh node sample.",
+        ));
+    }
+    if config.network && !db.settings.allow_network {
+        return Err(bad("Outbound networking is disabled in lab settings."));
+    }
+    Ok(())
+}
+
+async fn update_workspace(
+    State(state): State<AppState>,
+    Extension(actor): Extension<Actor>,
+    Path(id): Path<String>,
+    Json(body): Json<WorkspaceProperties>,
+) -> Result<Json<Workspace>> {
+    actor.operate()?;
+    let mut s = state.store.lock().await;
+    let w =
+        s.db.workspaces
+            .iter()
+            .find(|w| w.id == id)
+            .cloned()
+            .ok_or_else(missing)?;
+    actor.lab(&w.lab_id)?;
+    if !valid_name(&body.name)
+        || !(1..=256).contains(&body.cpus)
+        || !(256..=1048576).contains(&body.memory_mb)
+    {
+        return Err(bad("Choose a valid name, CPU budget, and memory budget."));
+    }
+    if !matches!(w.status.as_str(), "running" | "stopped" | "error")
+        || s.db
+            .jobs
+            .iter()
+            .any(|j| j.workspace.id == id && matches!(j.status.as_str(), "queued" | "leased"))
+    {
+        return Err(bad(
+            "Wait for the current workspace operation to finish before editing.",
+        ));
+    }
+    let mut gpu_ids = body.gpu_ids.clone();
+    gpu_ids.sort();
+    let mut previous_gpus = w.gpu_ids.clone();
+    previous_gpus.sort();
+    let reconfigure = body.cpus != w.cpus
+        || body.memory_mb != w.memory_mb
+        || body.network != w.network
+        || gpu_ids != previous_gpus
+        || w.status == "error";
+    let node =
+        s.db.nodes
+            .iter()
+            .find(|n| n.id == w.node_id && !n.revoked)
+            .ok_or_else(|| bad("The compute node was revoked. Its workspaces cannot be edited."))?;
+    if reconfigure {
+        if !matches!(w.status.as_str(), "stopped" | "error") {
+            return Err(bad(
+                "Stop this workspace before changing its compute or network settings.",
+            ));
+        }
+        if node.last_seen + 45 <= now() || !node.docker {
+            return Err(bad(
+                "Reconnect the compute node with Docker available before changing resources.",
+            ));
+        }
+        validate_workspace_resources(&s.db, node, &body, Some(&id))?;
+    }
+    let row = s.db.workspaces.iter_mut().find(|w| w.id == id).unwrap();
+    row.name = body.name.trim().into();
+    if reconfigure {
+        // Reserve the requested budget immediately. The workspace cannot start
+        // until its agent has applied this configuration successfully.
+        row.cpus = body.cpus;
+        row.memory_mb = body.memory_mb;
+        row.network = body.network;
+        row.gpu_ids = gpu_ids;
+        row.status = "updating".into();
+        row.error.clear();
+        row.metrics = None;
+        row.history.clear();
+    }
+    let updated = row.clone();
+    if reconfigure {
+        s.db.enqueue(updated.clone(), "update", "");
+        s.db.app_sessions
+            .retain(|session| session.workspace_id != id);
+    }
+    s.db.event(
+        &w.lab_id,
+        format!(
+            "{}: {}",
+            updated.name,
+            if reconfigure {
+                "settings update requested"
+            } else {
+                "name updated"
+            }
+        ),
+        "workspace",
+    );
+    s.save()?;
+    Ok(Json(updated))
+}
+
 #[derive(Deserialize)]
 struct Action {
     action: String,
@@ -1295,7 +1420,7 @@ async fn agent_complete(
                 "deleting"
             } else if !body.ok {
                 "error"
-            } else if j.action == "stop" {
+            } else if matches!(j.action.as_str(), "stop" | "update") {
                 "stopped"
             } else {
                 "running"

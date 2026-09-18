@@ -116,7 +116,7 @@ The coordinator has no Docker socket. Compute agents run separately on their dev
 | --- | --- |
 | Labs | Multiple labs with separate nodes, workspaces, activity, and access keys |
 | Nodes | One-time enrollment, independent credentials, heartbeats, CPU/RAM/network and GPU telemetry, revocation, reconnecting outbound relay |
-| Workspaces | Fixed templates, CPU/RAM/GPU reservations, create/stop/resume/remove, dedicated persistent volumes |
+| Workspaces | Fixed templates, CPU/RAM/GPU reservations, create/edit/stop/resume/remove, dedicated persistent volumes |
 | Tools | JupyterLab and code-server over authenticated HTTP/WebSockets; buffered Linux console commands |
 | Access | Owner administration, lab-scoped operator/viewer keys, 7-day key expiry, session expiry and revocation |
 | Settings | Coordinator name/URL, default CPU/RAM, lab workspace cap, idle shutdown, session duration, network policy |
@@ -124,6 +124,8 @@ The coordinator has no Docker socket. Compute agents run separately on their dev
 | Clients | Responsive Svelte web app and Tauri desktop shell |
 
 **Open workspace** launches JupyterLab and VS Code in a CloudLab window with lab/node details, CPU and memory allocations, connection status, and a full-screen control. The Linux console fills the dashboard window and includes command history, copy/clear output, and full-screen controls. Browser sessions reconnect through the dashboard; an expired link never requires entering the lab key into the container. Existing workspace images do not need rebuilding for the workspace interface.
+
+**Edit a workspace** from its card’s **Manage (⋯) → Edit workspace** button. Owners and lab operators can rename it while it is running. Stop it first to change CPU cores, memory, GPU assignments, or outbound internet access; the node must be online with Docker available. Saving resource changes rebuilds the stopped container using the same persistent `/home/lab` volume, then leaves it stopped for you to resume. The tool and node stay fixed. Temporary files are not retained. If an update fails, its requested resources remain reserved: correct the settings and save again to retry. Update and restart both the coordinator and compute agent to use this feature.
 
 **Operators share all workspaces in their assigned lab.** Viewers can only inspect status and activity. Use separate labs for separate trust groups. Lab settings are coordinator-wide defaults and policies, not per-user quotas.
 

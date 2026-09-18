@@ -129,7 +129,7 @@ impl Fixture {
 
 #[tokio::test]
 async fn offline_removal_supersedes_queued_work_and_survives_restart() {
-    for action in ["create", "start", "stop", "exec"] {
+    for action in ["create", "start", "stop", "exec", "update"] {
         let mut f = Fixture::new().await;
         let previous = f
             .state
@@ -346,4 +346,213 @@ async fn forgetting_a_revoked_node_workspace_only_removes_its_records() {
             .contains("any container and volume remain"));
         assert!(restored.db.nodes.iter().all(|n| n.revoked));
     }
+}
+
+impl Fixture {
+    fn properties(&self) -> WorkspaceProperties {
+        WorkspaceProperties {
+            name: "Renamed workspace".into(),
+            cpus: self.workspace.cpus,
+            memory_mb: self.workspace.memory_mb,
+            network: false,
+            gpu_ids: vec![],
+        }
+    }
+
+    async fn prepare_edit(&self, status: &str) {
+        let mut store = self.state.store.lock().await;
+        store.db.nodes[0].last_seen = now();
+        store.db.workspaces[0].status = status.into();
+    }
+
+    async fn edit(&self, body: WorkspaceProperties) -> Result<Json<Workspace>> {
+        update_workspace(
+            State(self.state.clone()),
+            Extension(self.actor.clone()),
+            Path(self.workspace.id.clone()),
+            Json(body),
+        )
+        .await
+    }
+}
+
+#[tokio::test]
+async fn rename_running_workspace_offline_without_container_job() {
+    let f = Fixture::new().await;
+    f.prepare_edit("running").await;
+    f.state.store.lock().await.db.nodes[0].last_seen = now() - 60;
+    let mut body = f.properties();
+    body.name = "  New name  ".into();
+    let updated = f.edit(body).await.unwrap().0;
+    assert_eq!(updated.name, "New name");
+    assert_eq!(updated.status, "running");
+    let restored = Store::open(f.directory.path()).unwrap();
+    assert!(restored.db.jobs.is_empty());
+    assert_eq!(restored.db.workspaces[0].name, "New name");
+    assert_eq!(restored.db.workspaces[0].cpus, 1);
+}
+
+#[tokio::test]
+async fn workspace_edit_enforces_scope_state_and_valid_budgets() {
+    let mut f = Fixture::new().await;
+    f.prepare_edit("stopped").await;
+    f.actor.role = "viewer".into();
+    assert_eq!(
+        f.edit(f.properties()).await.err().unwrap().0,
+        StatusCode::FORBIDDEN
+    );
+    f.actor.role = "operator".into();
+    f.actor.lab_id = Some(id());
+    assert_eq!(
+        f.edit(f.properties()).await.err().unwrap().0,
+        StatusCode::FORBIDDEN
+    );
+    f.actor.lab_id = Some(f.workspace.lab_id.clone());
+    for (cpus, memory) in [
+        (0, 512),
+        (257, 512),
+        (1, 255),
+        (1, 1048577),
+        (5, 512),
+        (1, 4097),
+    ] {
+        let mut body = f.properties();
+        body.cpus = cpus;
+        body.memory_mb = memory;
+        assert!(f.edit(body).await.is_err());
+    }
+    let mut body = f.properties();
+    body.name = "  ".into();
+    assert!(f.edit(body).await.is_err());
+    let mut body = f.properties();
+    body.network = true;
+    assert!(f.edit(body).await.is_err());
+    for status in [
+        "running", "creating", "starting", "stopping", "deleting", "updating",
+    ] {
+        f.prepare_edit(status).await;
+        let mut body = f.properties();
+        body.cpus = 2;
+        assert!(f.edit(body).await.is_err());
+    }
+    f.prepare_edit("stopped").await;
+    f.state.store.lock().await.db.nodes[0].last_seen = now() - 60;
+    let mut body = f.properties();
+    body.cpus = 2;
+    assert!(f.edit(body).await.is_err());
+    f.prepare_edit("stopped").await;
+    f.state.store.lock().await.db.nodes[0].revoked = true;
+    assert!(f.edit(f.properties()).await.is_err());
+    assert!(f.state.store.lock().await.db.jobs.is_empty());
+}
+
+#[tokio::test]
+async fn update_reserves_capacity_persists_and_stays_stopped_after_completion() {
+    let mut f = Fixture::new().await;
+    f.prepare_edit("stopped").await;
+    let mut body = f.properties();
+    body.cpus = 4;
+    body.memory_mb = 4096;
+    assert_eq!(f.edit(body).await.unwrap().0.status, "updating");
+    assert!(f.edit(f.properties()).await.is_err());
+    assert!(f.action("start").await.is_err());
+    assert!(create_workspace(
+        State(f.state.clone()),
+        Extension(f.actor.clone()),
+        Json(NewWorkspace {
+            lab_id: f.workspace.lab_id.clone(),
+            node_id: f.workspace.node_id.clone(),
+            name: "Extra workspace".into(),
+            template: "terminal".into(),
+            cpus: 1,
+            memory_mb: 512,
+            network: false,
+            gpu_ids: vec![],
+        })
+    )
+    .await
+    .is_err());
+    f.state = create_state(f.directory.path().into(), f.state.app_url.clone())
+        .await
+        .unwrap();
+    let job = f.poll(true, true).await;
+    assert_eq!(job["action"], "update");
+    assert_eq!(job["workspace"]["cpus"], 4);
+    assert_eq!(
+        f.state.store.lock().await.db.workspaces[0].status,
+        "updating"
+    );
+    f.complete(job["id"].as_str().unwrap(), true).await;
+    let store = f.state.store.lock().await;
+    assert_eq!(store.db.workspaces[0].status, "stopped");
+    assert_eq!(store.db.workspaces[0].memory_mb, 4096);
+}
+
+#[tokio::test]
+async fn failed_update_keeps_reservation_and_can_be_retried() {
+    let f = Fixture::new().await;
+    f.prepare_edit("stopped").await;
+    let mut body = f.properties();
+    body.cpus = 3;
+    assert_eq!(f.edit(body).await.unwrap().0.status, "updating");
+    let job = f.poll(true, true).await;
+    f.complete(job["id"].as_str().unwrap(), false).await;
+    {
+        let store = f.state.store.lock().await;
+        assert_eq!(store.db.workspaces[0].status, "error");
+        assert_eq!(store.db.workspaces[0].cpus, 3);
+        assert!(!store.db.workspaces[0].error.is_empty());
+    }
+    assert!(f.action("start").await.is_err());
+    let mut body = f.properties();
+    body.cpus = 3;
+    assert_eq!(f.edit(body).await.unwrap().0.status, "updating");
+    let retry = f.poll(true, true).await;
+    assert_ne!(retry["id"], job["id"]);
+    f.complete(retry["id"].as_str().unwrap(), true).await;
+    assert_eq!(
+        f.state.store.lock().await.db.workspaces[0].status,
+        "stopped"
+    );
+}
+
+#[tokio::test]
+async fn edit_gpu_reservations_exclude_self_but_not_other_workspaces() {
+    let f = Fixture::new().await;
+    f.prepare_edit("stopped").await;
+    {
+        let mut store = f.state.store.lock().await;
+        store.db.nodes[0].gpus = vec![Gpu {
+            id: "gpu-one".into(),
+            access: "nvidia".into(),
+            ..Default::default()
+        }];
+        store.db.nodes[0].metrics = Some(Metrics {
+            at: now(),
+            ..Default::default()
+        });
+        store.db.workspaces[0].gpu_ids = vec!["gpu-one".into()];
+    }
+    for ids in [vec!["unknown"], vec!["gpu-one", "gpu-one"]] {
+        let mut body = f.properties();
+        body.gpu_ids = ids.into_iter().map(String::from).collect();
+        assert!(f.edit(body).await.is_err());
+    }
+    let mut body = f.properties();
+    body.gpu_ids = vec!["gpu-one".into()];
+    body.cpus = 2;
+    assert!(f.edit(body).await.is_ok());
+    let job = f.poll(true, true).await;
+    f.complete(job["id"].as_str().unwrap(), true).await;
+    {
+        let mut store = f.state.store.lock().await;
+        let mut other = f.workspace.clone();
+        other.id = id();
+        other.gpu_ids = vec!["gpu-one".into()];
+        store.db.workspaces[0].gpu_ids.clear();
+        store.db.workspaces.push(other);
+    }
+    let mut body = f.properties();
+    body.gpu_ids = vec!["gpu-one".into()];
+    assert!(f.edit(body).await.is_err());
 }

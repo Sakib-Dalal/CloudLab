@@ -670,11 +670,27 @@ export const guides: Guide[] = [
             "Choose the node, CPU allowance, and memory limit when creating a workspace. Defaults start at 2 CPUs and 2048 MB RAM and can be changed in Lab settings. A node must have enough unreserved capacity for the requested allocation.",
           ),
           text(
-            "CPU and memory reservations include stopped workspaces. Stopping a workspace ends its running process, but keeps its reservation so it can resume. Remove a workspace to release that reservation. Resource policies are not per-user quotas.",
+            "CPU and memory reservations include stopped workspaces. Stopping a workspace ends its running process, but keeps its reservation so it can resume. Reduce its budget in Edit workspace or remove it to release that reservation. Resource policies are not per-user quotas.",
           ),
           note(
             "One workspace, one node",
             "A resource budget applies to one container. CloudLab is not a distributed job scheduler and cannot combine memory from multiple computers.",
+          ),
+        ],
+      },
+      {
+        id: "edit",
+        title: "Edit a workspace",
+        blocks: [
+          text(
+            "Open the workspace card’s Manage (⋯) button, then choose Edit workspace. Owners and operators can rename a running workspace. Stop it first to change CPU cores, memory in MB, GPU assignments, or outbound internet access. The node must be online with Docker available, and the requested budget must fit its unreserved capacity.",
+          ),
+          text(
+            "Save changes rebuilds the stopped container using its existing /home/lab volume. Your project files remain available; temporary files do not. The workspace stays stopped until you resume it. Its tool and compute node stay fixed. Internet access requires permission in both lab settings and the agent’s --allow-network flag.",
+          ),
+          note(
+            "Update both components",
+            "Install the updated CloudLab CLI and restart the coordinator and compute agent before editing resources. If an update fails, its requested resources remain reserved. Correct the settings or the node issue, then save again to retry.",
           ),
         ],
       },
@@ -695,7 +711,7 @@ export const guides: Guide[] = [
       },
       {
         id: "lifecycle",
-        title: "Create, stop, resume, remove",
+        title: "Create, edit, stop, resume, remove",
         blocks: [
           list(
             "Create queues work on the selected node; the agent starts the container and waits for the application to be ready.",

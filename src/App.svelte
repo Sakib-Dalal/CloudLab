@@ -147,6 +147,7 @@
   );
   const selectedNode = $derived(nodes.find((n) => n.id === nodeId));
   $effect(() => {
+    if (modal === "workspace-edit") return;
     const valid = gpuIds.filter((id) =>
       selectedNode?.gpus?.some(
         (g) => g.id === id && ["nvidia", "dri"].includes(g.access),
@@ -178,6 +179,35 @@
   );
   const activeWorkspaceRevoked = $derived(
     !!activeWorkspace && (!activeWorkspaceNode || activeWorkspaceNode.revoked),
+  );
+  const editingWorkspace = $derived(modal === "workspace-edit");
+  const canEditCompute = $derived(
+    !editingWorkspace ||
+      (!!activeWorkspace &&
+        ["stopped", "error"].includes(activeWorkspace.status) &&
+        activeWorkspaceOnline &&
+        !!activeWorkspaceNode?.docker),
+  );
+  const resourcePeers = $derived(
+    workspaces.filter(
+      (w) =>
+        w.node_id === nodeId &&
+        (!editingWorkspace || w.id !== activeWorkspace?.id),
+    ),
+  );
+  const cpuBudget = $derived(
+    Math.max(
+      0,
+      (selectedNode?.cpus ?? 0) -
+        resourcePeers.reduce((sum, w) => sum + w.cpus, 0),
+    ),
+  );
+  const memoryBudget = $derived(
+    Math.max(
+      0,
+      (selectedNode?.memory_mb ?? 0) -
+        resourcePeers.reduce((sum, w) => sum + w.memory_mb, 0),
+    ),
   );
   const running = $derived(
     workspaces.filter(
@@ -235,7 +265,9 @@
           data.workspaces.find((w) => w.id === activeWorkspace?.id) || null;
         if (
           !activeWorkspace &&
-          ["console", "workspace-detail", "delete"].includes(modal)
+          ["console", "workspace-detail", "workspace-edit", "delete"].includes(
+            modal,
+          )
         ) {
           modal = "";
           notify("This workspace is no longer available.");
@@ -307,6 +339,15 @@
     template = "jupyter";
     network = false;
     gpuIds = [];
+    if (kind === "workspace-edit" && w) {
+      name = w.name;
+      nodeId = w.node_id;
+      template = w.template;
+      cpus = w.cpus;
+      memory = w.memory_mb;
+      network = w.network;
+      gpuIds = [...(w.gpu_ids ?? [])];
+    }
   }
   async function copy(text: string) {
     try {
@@ -320,6 +361,48 @@
     busy = true;
     modalError = "";
     try {
+      if (editingWorkspace && activeWorkspace) {
+        const properties = {
+          name: name.trim(),
+          cpus,
+          memory_mb: memory,
+          network,
+          gpu_ids: gpuIds,
+        };
+        let updated: Workspace;
+        if (demo) {
+          if (
+            !name.trim() ||
+            cpus < 1 ||
+            cpus > cpuBudget ||
+            memory < 256 ||
+            memory > memoryBudget
+          )
+            throw new Error(
+              "Choose a valid name and budgets within the node's available capacity.",
+            );
+          updated = { ...activeWorkspace, ...properties, error: "" };
+          if (updated.status === "error") updated.status = "stopped";
+          data!.workspaces = data!.workspaces.map((w) =>
+            w.id === updated.id ? updated : w,
+          );
+        } else {
+          updated = await api<Workspace>(
+            `/workspaces/${activeWorkspace.id}`,
+            properties,
+            "PUT",
+          );
+        }
+        activeWorkspace = updated;
+        modal = "workspace-detail";
+        notify(
+          updated.status === "updating"
+            ? "Settings update queued. Your files will be kept; resume when it finishes."
+            : "Workspace settings saved.",
+        );
+        await refresh();
+        return;
+      }
       if (demo) {
         if (modal === "workspace") {
           data!.workspaces.push({
@@ -1344,7 +1427,7 @@
                 <div>
                   <label for="network">Allow workspace internet access</label>
                   <p>
-                    Lets new workspaces opt into outbound networking. This also
+                    Lets workspaces opt into outbound networking. This also
                     permits routes to your LAN; keep it off for untrusted users.
                   </p>
                 </div>
@@ -1397,11 +1480,13 @@
       aria-modal="true"
       aria-label={modal === "workspace"
         ? "New workspace"
-        : modal === "node"
-          ? "Connect a node"
-          : modal === "console"
-            ? "CloudLab terminal workspace"
-            : "Lab dialog"}
+        : editingWorkspace
+          ? "Edit workspace"
+          : modal === "node"
+            ? "Connect a node"
+            : modal === "console"
+              ? "CloudLab terminal workspace"
+              : "Lab dialog"}
       tabindex="-1"
       onkeydown={(e) => {
         if (e.key === "Escape" && !busy) modal = "";
@@ -1429,26 +1514,30 @@
           onclick={() => (modal = "")}
           disabled={busy}><X size={21} /></button
         >{/if}
-      {#if ["workspace", "lab", "node", "access"].includes(modal)}
+      {#if ["workspace", "workspace-edit", "lab", "node", "access"].includes(modal)}
         <div class="modal-symbol"><FlaskConical size={25} /></div>
         <div class="eyebrow">{lab?.name || "CLOUDLAB"}</div>
         <h2>
-          {modal === "workspace"
-            ? "A fresh space to work."
-            : modal === "lab"
-              ? "Create a new lab."
-              : modal === "node"
-                ? "Welcome another device."
-                : "Make room for a collaborator."}
+          {editingWorkspace
+            ? "Edit workspace"
+            : modal === "workspace"
+              ? "A fresh space to work."
+              : modal === "lab"
+                ? "Create a new lab."
+                : modal === "node"
+                  ? "Welcome another device."
+                  : "Make room for a collaborator."}
         </h2>
         <p class="modal-intro">
-          {modal === "workspace"
-            ? "Choose your tools and a node. We’ll take care of the container."
-            : modal === "lab"
-              ? "Group your devices and workspaces around a shared purpose."
-              : modal === "node"
-                ? "Pair a trusted computer with Docker installed. The key can be used once and expires in 10 minutes."
-                : "An access key is limited to this lab. Share it privately with someone you trust."}
+          {editingWorkspace
+            ? "Adjust your workspace name and resources. Your saved files stay with this workspace."
+            : modal === "workspace"
+              ? "Choose your tools and a node. We’ll take care of the container."
+              : modal === "lab"
+                ? "Group your devices and workspaces around a shared purpose."
+                : modal === "node"
+                  ? "Pair a trusted computer with Docker installed. The key can be used once and expires in 10 minutes."
+                  : "An access key is limited to this lab. Share it privately with someone you trust."}
         </p>
         {#if secret}<div class="secret-block">
             <strong
@@ -1520,88 +1609,141 @@
                 maxlength="160"
                 placeholder="What will you explore here?"
               />{/if}
-            {#if modal === "workspace"}<label for="template-picker"
-                >Start with a tool</label
-              >
-              <div id="template-picker" class="template-picker">
-                {#each templates as t}<button
-                    type="button"
-                    class:selected={template === t.id}
-                    onclick={() => (template = t.id)}
-                    ><t.icon size={22} /><strong>{t.name}</strong><small
-                      >{t.detail}</small
-                    >{#if template === t.id}<Check size={14} />{/if}</button
-                  >{/each}
-              </div>
-              <label for="node">Compute node</label><select
-                id="node"
-                bind:value={nodeId}
-                required
-                ><option value="" disabled>Select an online node</option
-                >{#each online.filter((n) => n.docker) as n}<option value={n.id}
-                    >{n.name} · {n.cpus} cores · {mem(n.memory_mb)}</option
-                  >{/each}</select
-              >
-              <div class="form-columns">
-                <div>
-                  <label for="cpus">CPU budget</label><input
-                    id="cpus"
-                    type="number"
-                    min="1"
-                    max={nodes.find((n) => n.id === nodeId)?.cpus || 16}
-                    bind:value={cpus}
-                    required
-                  />
-                </div>
-                <div>
-                  <label for="memory">Memory budget</label><select
-                    id="memory"
-                    bind:value={memory}
-                    >{#each [512, 1024, 2048, 4096, 8192, 16384, 32768] as m}<option
-                        value={m}>{mem(m)}</option
-                      >{/each}</select
-                  >
-                </div>
-              </div>
-              {#if selectedNode?.gpus?.length}<fieldset class="gpu-picker">
-                  <legend>GPU acceleration <span>Optional</span></legend
-                  >{#each selectedNode.gpus as gpu}{@const assigned =
-                      workspaces.some(
-                        (w) =>
-                          w.node_id === nodeId && w.gpu_ids?.includes(gpu.id),
-                      )}{@const supported = ["nvidia", "dri"].includes(
-                      gpu.access,
-                    )}<label
-                      ><input
-                        type="checkbox"
-                        bind:group={gpuIds}
-                        value={gpu.id}
-                        disabled={!supported ||
-                          assigned ||
-                          (!demo && !fresh(selectedNode.metrics, clock))}
-                      /><span
-                        ><strong>{gpu.name}</strong><small
-                          >{assigned
-                            ? "Assigned to another workspace"
-                            : gpu.access_note}</small
-                        ></span
-                      ><em
-                        >{supported
-                          ? assigned
-                            ? "Assigned"
-                            : "Available"
-                          : "Monitoring only"}</em
-                      ></label
-                    >{/each}
-                  <p>
-                    Selected GPUs are reserved until this workspace is removed.
-                    GPU libraries must be available in the workspace image.
+            {#if modal === "workspace" || editingWorkspace}
+              {#if editingWorkspace}
+                <p class="hint">
+                  {templateName(template)} on {nodeName(nodeId)}. The tool and
+                  node stay fixed because your files are stored on this node.
+                </p>
+                {#if !canEditCompute}<p class="form-note">
+                    {activeWorkspace?.status === "running"
+                      ? "You can rename now. Stop the workspace to edit compute and internet access."
+                      : "Reconnect the compute node with Docker available to edit resources."}
                   </p>
-                </fieldset>{/if}
-              {#if data?.settings.allow_network}<label class="checkbox-label"
-                  ><input type="checkbox" bind:checked={network} />Allow
-                  outbound network access</label
-                >{/if}
+                {:else}<p class="form-note">
+                    Saving resource changes keeps your saved files and resets
+                    temporary files. Resume the workspace when the update
+                    finishes.
+                  </p>{/if}
+              {:else}<label for="template-picker">Start with a tool</label>
+                <div id="template-picker" class="template-picker">
+                  {#each templates as t}<button
+                      type="button"
+                      class:selected={template === t.id}
+                      onclick={() => (template = t.id)}
+                      ><t.icon size={22} /><strong>{t.name}</strong><small
+                        >{t.detail}</small
+                      >{#if template === t.id}<Check size={14} />{/if}</button
+                    >{/each}
+                </div>
+                <label for="node">Compute node</label><select
+                  id="node"
+                  bind:value={nodeId}
+                  required
+                  ><option value="" disabled>Select an online node</option
+                  >{#each online.filter((n) => n.docker) as n}<option
+                      value={n.id}
+                      >{n.name} · {n.cpus} cores · {mem(n.memory_mb)}</option
+                    >{/each}</select
+                >
+              {/if}
+              <fieldset
+                class="workspace-resources"
+                disabled={busy || !canEditCompute}
+              >
+                <legend class="sr-only">Compute and network settings</legend>
+                <div class="form-columns">
+                  <div>
+                    <label for="cpus">CPU cores</label><input
+                      id="cpus"
+                      type="number"
+                      min="1"
+                      max={Math.min(256, cpuBudget)}
+                      step="1"
+                      bind:value={cpus}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label for="memory">Memory (MB)</label><input
+                      id="memory"
+                      type="number"
+                      min="256"
+                      max={Math.min(1048576, memoryBudget)}
+                      step="1"
+                      bind:value={memory}
+                      required
+                    />
+                  </div>
+                </div>
+                <p class="hint">
+                  Available for this workspace: {cpuBudget} CPU cores · {mem(
+                    memoryBudget,
+                  )} memory.
+                </p>
+                {#if selectedNode?.gpus?.length}<fieldset class="gpu-picker">
+                    <legend>GPU acceleration <span>Optional</span></legend
+                    >{#each selectedNode.gpus as gpu}{@const assigned =
+                        workspaces.some(
+                          (w) =>
+                            w.node_id === nodeId &&
+                            (!editingWorkspace ||
+                              w.id !== activeWorkspace?.id) &&
+                            w.gpu_ids?.includes(gpu.id),
+                        )}{@const supported = ["nvidia", "dri"].includes(
+                        gpu.access,
+                      )}<label
+                        ><input
+                          type="checkbox"
+                          bind:group={gpuIds}
+                          value={gpu.id}
+                          disabled={!gpuIds.includes(gpu.id) &&
+                            (!supported ||
+                              assigned ||
+                              (!demo && !fresh(selectedNode.metrics, clock)))}
+                        /><span
+                          ><strong>{gpu.name}</strong><small
+                            >{assigned
+                              ? "Assigned to another workspace"
+                              : gpu.access_note}</small
+                          ></span
+                        ><em
+                          >{supported
+                            ? assigned
+                              ? "Assigned"
+                              : "Available"
+                            : "Monitoring only"}</em
+                        ></label
+                      >{/each}
+                    <p>
+                      Selected GPUs are reserved until you unassign them or
+                      remove this workspace. GPU libraries must be available in
+                      the workspace image.
+                    </p>
+                  </fieldset>{/if}
+                {#each gpuIds.filter((id) => !selectedNode?.gpus?.some((g) => g.id === id)) as missingGpu}
+                  <label class="checkbox-label"
+                    ><input
+                      type="checkbox"
+                      bind:group={gpuIds}
+                      value={missingGpu}
+                    />Unavailable GPU ({missingGpu}) — uncheck to release</label
+                  >
+                {/each}
+                {#if data?.settings.allow_network || editingWorkspace}<label
+                    class="checkbox-label"
+                    ><input
+                      type="checkbox"
+                      bind:checked={network}
+                      disabled={!data?.settings.allow_network && !network}
+                    />Allow outbound network access</label
+                  >{/if}
+                {#if editingWorkspace && !data?.settings.allow_network}<p
+                    class="hint"
+                  >
+                    Internet access is disabled in lab settings.
+                  </p>{/if}
+              </fieldset>
               <div class="form-note">
                 <ShieldCheck size={17} />Non-root · No host mounts · Resource
                 limited
@@ -1619,17 +1761,32 @@
                 {modalError}
               </div>{/if}<button
               class="primary full"
-              disabled={busy || (modal === "workspace" && !nodeId)}
+              disabled={busy ||
+                (modal === "workspace" && !nodeId) ||
+                (editingWorkspace &&
+                  (!activeWorkspace ||
+                    activeWorkspaceRevoked ||
+                    !["running", "stopped", "error"].includes(
+                      activeWorkspace.status,
+                    )))}
               >{busy
                 ? "Working…"
-                : modal === "workspace"
-                  ? "Create workspace"
-                  : modal === "lab"
-                    ? "Create lab"
-                    : modal === "node"
-                      ? "Generate pairing command"
-                      : "Create access key"}<ArrowRight size={17} /></button
+                : editingWorkspace
+                  ? "Save changes"
+                  : modal === "workspace"
+                    ? "Create workspace"
+                    : modal === "lab"
+                      ? "Create lab"
+                      : modal === "node"
+                        ? "Generate pairing command"
+                        : "Create access key"}<ArrowRight size={17} /></button
             >
+            {#if editingWorkspace}<button
+                type="button"
+                class="secondary full"
+                disabled={busy}
+                onclick={() => (modal = "workspace-detail")}>Cancel</button
+              >{/if}
           </form>{/if}
       {:else if modal === "workspace-detail" && activeWorkspace}<div
           class="modal-symbol"
@@ -1680,7 +1837,23 @@
           </p>{/if}
         {#if activeWorkspace.error}<div class="inline-error">
             {activeWorkspace.error}
-          </div>{/if}{#if canOperate}<div class="detail-actions">
+          </div>{/if}{#if activeWorkspace.status === "updating"}<p
+            class="hint"
+            role="status"
+          >
+            Applying settings. Your workspace will stay stopped when the update
+            finishes.
+          </p>{/if}{#if canOperate}<div class="detail-actions">
+            <button
+              class="secondary"
+              disabled={busy ||
+                activeWorkspaceRevoked ||
+                !["running", "stopped", "error"].includes(
+                  activeWorkspace.status,
+                )}
+              onclick={() => open("workspace-edit", activeWorkspace!)}
+              ><Settings2 size={17} />Edit workspace</button
+            >
             {#if activeWorkspace.status === "running"}<button
                 class="primary"
                 onclick={() => openApp(activeWorkspace!)}

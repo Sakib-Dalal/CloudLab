@@ -53,7 +53,8 @@ class API:
             response = urllib.request.urlopen(req, timeout=15)
         except urllib.error.HTTPError as e:
             response = e
-        value = json.loads(response.read())
+        payload = response.read()
+        value = json.loads(payload) if "application/json" in response.headers.get("Content-Type", "") else {"error": payload.decode()}
         assert response.status == expected, (path, response.status, expected, value)
         if response.headers.get("Set-Cookie"):
             self.cookie = response.headers["Set-Cookie"].split(";")[0]
@@ -171,6 +172,44 @@ def main():
             result = action(wid, "exec", "cat /home/lab/probe")
             assert result["output"] == "persistent-data", result
             print("PASS real container creation, isolation flags, non-root commands, stop/resume, persistent storage", flush=True)
+
+            properties = {"name": "Updated console", "cpus": 1, "memory_mb": 512, "network": False, "gpu_ids": []}
+            viewer.call(f"/workspaces/{wid}", properties, "PUT", expected=403)
+            operator.call(f"/workspaces/{wid}", properties, "PUT", csrf=False, expected=403)
+            renamed = operator.call(f"/workspaces/{wid}", properties, "PUT")
+            assert renamed["name"] == properties["name"] and renamed["status"] == "running"
+            operator.call(f"/workspaces/{wid}", dict(properties, cpus=2), "PUT", expected=400)
+            operator.call(f"/workspaces/{wid}", dict(properties, node_id=node_ids[1]), "PUT", expected=422)
+            assert action(wid, "stop")["status"] == "done"
+            properties.update(cpus=2, memory_mb=768)
+            updated = operator.call(f"/workspaces/{wid}", properties, "PUT")
+            assert updated["status"] == "updating"
+            wait_for(lambda: workspace_status(wid, "stopped"))
+            info = json.loads(docker("inspect", f"cloudlab-{wid}"))[0]
+            assert not info["State"]["Running"]
+            assert info["HostConfig"]["NanoCpus"] == 2_000_000_000
+            assert info["HostConfig"]["Memory"] == info["HostConfig"]["MemorySwap"] == 768 * 1024 * 1024
+            assert info["HostConfig"]["ReadonlyRootfs"] and info["Config"]["User"] == "1000:1000"
+            assert action(wid, "start")["status"] == "done"
+            assert action(wid, "exec", "cat /home/lab/probe")["output"] == "persistent-data"
+            # Exercise networking edits in both directions with a consenting agent.
+            subprocess.run([str(BIN), "agent", "stop", "--data-dir", str(directory / "node-0")], check=True)
+            processes[1].wait(timeout=10)
+            processes[1] = subprocess.Popen([str(BIN), "agent", "start", "--allow-network", "--data-dir", str(directory / "node-0")], stdout=log, stderr=log)
+            wait_for(lambda: (directory / "node-0/agent-run").exists())
+            settings = api.call("/state")["settings"]
+            api.call("/settings", dict(settings, allow_network=True), "PUT")
+            for network in [True, False]:
+                assert action(wid, "stop")["status"] == "done"
+                properties["network"] = network
+                operator.call(f"/workspaces/{wid}", properties, "PUT")
+                wait_for(lambda: workspace_status(wid, "stopped"))
+                info = json.loads(docker("inspect", f"cloudlab-{wid}"))[0]
+                assert info["HostConfig"]["NetworkMode"] == (f"cloudlab-{wid}-net" if network else "none")
+                assert not info["State"]["Running"]
+                assert action(wid, "start")["status"] == "done"
+                assert action(wid, "exec", "cat /home/lab/probe")["output"] == "persistent-data"
+            print("PASS workspace rename, edit authorization, stopped resource updates, Docker limits, network changes, and preserved files", flush=True)
 
             if os.environ.get("CLOUDLAB_TEST_APPS") == "1":
                 for template in ["jupyter", "code"]:

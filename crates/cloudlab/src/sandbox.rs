@@ -398,18 +398,48 @@ async fn execute_inner(
 ) -> anyhow::Result<String> {
     let name = container_name(&w.id)?;
     anyhow::ensure!(valid_id(node), "Invalid node ID");
-    if action == "create" {
+    if matches!(action, "create" | "update") {
         let gpus = if w.gpu_ids.is_empty() {
             Vec::new()
         } else {
             crate::telemetry::gpus().await
         };
-        let args = run_args(w, node, allow_network, &gpus)?;
-        if let Ok(existing) = inspect(&w.id, node).await {
-            if existing["State"]["Running"] == true {
-                return Ok("Container is already running".into());
+        let mut args = run_args(w, node, allow_network, &gpus)?;
+        if action == "update" {
+            // Validate the image and all resource/device arguments before
+            // removing anything. Never stop a container behind the user's back.
+            let image = match w.template.as_str() {
+                "terminal" => "cloudlab/terminal:2",
+                "jupyter" => "cloudlab/jupyter:2",
+                "code" => "cloudlab/code:2",
+                _ => unreachable!(),
+            };
+            docker(&strings(&["image", "inspect", image]), 15)
+                .await
+                .context("Workspace image is missing. Build the images on this node first.")?;
+            if docker(&strings(&["inspect", &name]), 15).await.is_ok() {
+                let existing = inspect(&w.id, node).await?;
+                anyhow::ensure!(
+                    existing["State"]["Running"] == false,
+                    "Stop the workspace on its node before applying settings."
+                );
+                docker(&strings(&["rm", &name]), 40).await?;
             }
-            return docker(&strings(&["start", &name]), 60).await;
+            // Docker create keeps the replacement stopped and reuses exactly
+            // the same persistent home volume; no volume is removed.
+            args[0] = "create".into();
+            args.remove(1); // --detach belongs to docker run, not create.
+            if !w.network {
+                cleanup_network(&name, node).await?;
+            }
+        }
+        if action == "create" {
+            if let Ok(existing) = inspect(&w.id, node).await {
+                if existing["State"]["Running"] == true {
+                    return Ok("Container is already running".into());
+                }
+                return docker(&strings(&["start", &name]), 60).await;
+            }
         }
         if w.network {
             let network = format!("{name}-net");
