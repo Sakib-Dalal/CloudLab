@@ -556,3 +556,60 @@ async fn edit_gpu_reservations_exclude_self_but_not_other_workspaces() {
     body.gpu_ids = vec!["gpu-one".into()];
     assert!(f.edit(body).await.is_err());
 }
+
+#[tokio::test]
+async fn package_jobs_preserve_lifecycle_and_enforce_permissions_and_network() {
+    use crate::packages::{operation, PackageRequest};
+    let mut f = Fixture::new().await;
+    f.prepare_edit("running").await;
+    async fn request(f: &Fixture, action: &str) -> Result<Json<Value>> {
+        operation(
+            State(f.state.clone()),
+            Extension(f.actor.clone()),
+            Path(f.workspace.id.clone()),
+            Json(PackageRequest {
+                action: action.into(),
+                name: "numpy".into(),
+                version: String::new(),
+            }),
+        )
+        .await
+    }
+    f.actor.role = "viewer".into();
+    assert_eq!(
+        request(&f, "list").await.err().unwrap().0,
+        StatusCode::FORBIDDEN
+    );
+    f.actor.role = "operator".into();
+    f.actor.lab_id = Some(id());
+    assert_eq!(
+        request(&f, "list").await.err().unwrap().0,
+        StatusCode::FORBIDDEN
+    );
+    f.actor.lab_id = Some(f.workspace.lab_id.clone());
+    assert!(request(&f, "install").await.is_err());
+    let job = request(&f, "list").await.unwrap().0;
+    assert!(request(&f, "list").await.is_err());
+    f.complete(job["id"].as_str().unwrap(), false).await;
+    assert_eq!(
+        f.state.store.lock().await.db.workspaces[0].status,
+        "running"
+    );
+    // Removal remains possible with internet disabled.
+    let job = request(&f, "remove").await.unwrap().0;
+    f.complete(job["id"].as_str().unwrap(), true).await;
+    assert_eq!(
+        f.state.store.lock().await.db.workspaces[0].status,
+        "running"
+    );
+    f.prepare_edit("stopped").await;
+    assert!(request(&f, "list").await.is_err());
+    assert!(f.action("rebuild").await.is_ok());
+    let mut store = f.state.store.lock().await;
+    assert_eq!(store.db.workspaces[0].status, "updating");
+    assert_eq!(store.db.jobs.last().unwrap().action, "update");
+    store.db.jobs.clear();
+    drop(store);
+    f.prepare_edit("running").await;
+    assert!(f.action("rebuild").await.is_err());
+}

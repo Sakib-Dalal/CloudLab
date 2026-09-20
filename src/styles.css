@@ -3247,3 +3247,34 @@ label {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.modal.package-modal { width: 780px; }
+.package-environment { display: flex; justify-content: space-between; align-items: center; gap: 16px; background: #eef2ec; padding: 14px 16px; border-radius: 10px; margin: 18px 0 8px; font-size: 13px; }
+.package-environment > span:last-child { display: flex; align-items: center; gap: 6px; color: #397363; }
+.package-environment > span.offline { color: #8c6552; }
+.package-environment small, .package-row small, .gpu-access-note small { display: block; font-size: 12px; margin-top: 3px; line-height: 1.5; color: #716c66; }
+.package-search { margin: 24px 0 16px; }
+.package-search > div { display: flex; gap: 10px; }
+.package-search input { flex: 1; min-width: 0; margin: 0; }
+.package-result, .package-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid #e8e3dc; }
+.package-result > div { min-width: 0; }
+.package-result strong, .package-row strong { overflow-wrap: anywhere; font-size: 14px; }
+.package-result a { margin-left: 8px; color: #7eacb5; }
+.package-result p { font-size: 13px; line-height: 1.55; margin: 7px 0; }
+.package-result small { color: #716c66; }
+.package-version { font-size: 12px; color: #716c66; margin-left: 8px; }
+.package-result button { flex-shrink: 0; }
+.installed-packages { margin: 24px 0; }
+.installed-packages h3 { margin: 0; }
+.package-list { max-height: 320px; overflow-y: auto; }
+.package-progress, .package-success, .gpu-access-note { display: flex; gap: 10px; border-radius: 10px; padding: 13px; background: #f2eee8; font-size: 13px; margin: 14px 0; }
+.package-progress { flex-wrap: wrap; }
+.package-progress small { flex-basis: 100%; }
+.package-success { background: #eef2ec; }
+.gpu-access-note > svg { flex-shrink: 0; margin-top: 3px; }
+.terminal-workspace > .gpu-access-note { margin: 0; border-radius: 0; padding: 8px 24px; }
+.package-confirm { padding: 16px; border: 1px solid #bf4646; border-radius: 10px; margin: 16px 0; }
+.package-confirm button { margin-right: 8px; }
+.package-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto; font-size: 12px; }
+.package-manager > .full { margin-top: 18px; }
+@media (max-width: 600px) { .package-environment { align-items: flex-start; flex-direction: column; gap: 8px; } .package-result { flex-wrap: wrap; } }

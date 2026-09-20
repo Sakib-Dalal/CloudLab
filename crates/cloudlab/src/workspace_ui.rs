@@ -46,6 +46,7 @@ pub fn metadata(w: &Workspace, node: &Node, lab: &str) -> Response {
         Json(json!({
             "name": w.name, "template": w.template, "cpus": w.cpus,
             "memory_mb": w.memory_mb, "network": w.network,
+            "gpu_note": if !w.gpu_ids.is_empty() { "GPU assigned. Use a compatible GPU-enabled Python library." } else if node.platform == "Darwin" { "Mac GPU: monitoring only. Docker Desktop Linux workspaces cannot access Metal." } else { "No GPU assigned. Select an available GPU in workspace settings." },
             "node": node.name, "lab": lab,
             "status": w.status, "node_online": node.last_seen + 45 > now(),
             "metrics": w.metrics, "history": w.history, "gpu_ids": w.gpu_ids,

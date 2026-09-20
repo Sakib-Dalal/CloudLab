@@ -237,6 +237,11 @@ pub fn router(state: AppState, web: PathBuf) -> Router {
         .route("/nodes/{id}", delete(revoke_node))
         .route("/workspaces", post(create_workspace))
         .route("/workspaces/{id}", put(update_workspace))
+        .route(
+            "/workspaces/{id}/packages",
+            post(crate::packages::operation),
+        )
+        .route("/packages/search", get(crate::packages::search))
         .route("/workspaces/{id}/actions", post(workspace_action))
         .route("/workspaces/{id}/open", post(crate::relay::open_workspace))
         .route("/jobs/{id}", get(job))
@@ -463,7 +468,14 @@ async fn maintenance(state: AppState) {
             .db
             .workspaces
             .iter()
-            .filter(|w| idle > 0 && w.status == "running" && w.last_used + idle * 60 < now())
+            .filter(|w| {
+                idle > 0
+                    && w.status == "running"
+                    && w.last_used + idle * 60 < now()
+                    && !store.db.jobs.iter().any(|j| {
+                        j.workspace.id == w.id && matches!(j.status.as_str(), "queued" | "leased")
+                    })
+            })
             .cloned()
             .collect();
         for w in to_stop {
@@ -1041,7 +1053,7 @@ async fn workspace_action(
     actor.operate()?;
     if !matches!(
         body.action.as_str(),
-        "start" | "stop" | "delete" | "forget" | "exec"
+        "start" | "stop" | "delete" | "forget" | "exec" | "rebuild"
     ) {
         return Err(bad("Unsupported workspace action."));
     }
@@ -1133,6 +1145,9 @@ async fn workspace_action(
     if body.action == "start" && w.status != "stopped" {
         return Err(bad("Only stopped workspaces can be resumed."));
     }
+    if body.action == "rebuild" && !matches!(w.status.as_str(), "stopped" | "error") {
+        return Err(bad("Stop the workspace before updating its environment."));
+    }
     let row = s.db.workspaces.iter_mut().find(|w| w.id == id).unwrap();
     row.last_used = now();
     row.error.clear();
@@ -1140,10 +1155,19 @@ async fn workspace_action(
         "start" => "starting",
         "stop" => "stopping",
         "delete" => "deleting",
+        "rebuild" => "updating",
         _ => &w.status,
     }
     .into();
-    let j = s.db.enqueue(w.clone(), &body.action, &body.command);
+    let j = s.db.enqueue(
+        w.clone(),
+        if body.action == "rebuild" {
+            "update"
+        } else {
+            &body.action
+        },
+        &body.command,
+    );
     s.db.event(
         &w.lab_id,
         format!("{}: {} requested", w.name, body.action),
@@ -1349,7 +1373,10 @@ async fn agent_poll(
     }
     // Console commands are deliberately at-most-once: an expired exec lease is never replayed.
     for j in s.db.jobs.iter_mut().filter(|j| {
-        j.node_id == node.id && j.status == "leased" && j.lease_until < now() && j.action == "exec"
+        j.node_id == node.id
+            && j.status == "leased"
+            && j.lease_until < now()
+            && matches!(j.action.as_str(), "exec" | "packages")
     }) {
         j.status = "failed".into();
         j.error =
@@ -1360,7 +1387,9 @@ async fn agent_poll(
             && body.docker
             && j.node_id == node.id
             && (j.status == "queued"
-                || (j.status == "leased" && j.lease_until < now() && j.action != "exec"))
+                || (j.status == "leased"
+                    && j.lease_until < now()
+                    && !matches!(j.action.as_str(), "exec" | "packages")))
             && !s.db.jobs.iter().any(|other| {
                 other.workspace.id == j.workspace.id
                     && other.id != j.id
@@ -1412,7 +1441,7 @@ async fn agent_complete(
             && other.action == "delete"
             && matches!(other.status.as_str(), "queued" | "leased")
     });
-    if j.action != "exec" {
+    if !matches!(j.action.as_str(), "exec" | "packages") {
         if body.ok && j.action == "delete" {
             s.db.workspaces.retain(|w| w.id != j.workspace.id);
         } else if let Some(w) = s.db.workspaces.iter_mut().find(|w| w.id == j.workspace.id) {

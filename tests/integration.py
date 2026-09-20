@@ -146,6 +146,12 @@ def main():
                 result = operator.call(f"/workspaces/{wid}/actions", {"action": action, "command": command})
                 return wait_for(lambda: (j if j["status"] in ["done", "failed"] else None) if (j := operator.call(f"/jobs/{result['id']}")) else None)
 
+            def package_operation(wid, operation, name="", version=""):
+                result = operator.call(f"/workspaces/{wid}/packages", {"action": operation, "name": name, "version": version})
+                completed = wait_for(lambda: (j if j["status"] in ["done", "failed"] else None) if (j := operator.call(f"/jobs/{result['id']}")) else None, seconds=700)
+                assert completed["status"] == "done", completed
+                return completed["output"]
+
             wid = operator.call("/workspaces", config)["id"]
             wait_for(lambda: workspace_status(wid, "running"))
             measured = wait_for(lambda: next((w for w in api.call("/state")["workspaces"] if w["id"] == wid and w.get("metrics") and w.get("history")), None))
@@ -172,6 +178,17 @@ def main():
             result = action(wid, "exec", "cat /home/lab/probe")
             assert result["output"] == "persistent-data", result
             print("PASS real container creation, isolation flags, non-root commands, stop/resume, persistent storage", flush=True)
+
+            viewer.call(f"/workspaces/{wid}/packages", {"action": "list"}, expected=403)
+            operator.call(f"/workspaces/{wid}/packages", {"action": "install", "name": "pyfiglet"}, expected=400)
+            operator.call(f"/workspaces/{wid}/packages", {"action": "remove", "name": "x;id"}, expected=400)
+            listed = json.loads(package_operation(wid, "list"))
+            assert listed["manager"] == "uv" and listed["environment"] == "/home/lab/.venv"
+            assert any(p["name"] == "ipykernel" and not p["removable"] for p in listed["packages"])
+            catalog = operator.call("/packages/search?q=pyfiglet")["packages"]
+            assert catalog and catalog[0]["name"] == "pyfiglet"
+            package_version = catalog[0]["version"]
+            print("PASS PyPI lookup, uv package inventory, permissions, and offline install rejection", flush=True)
 
             properties = {"name": "Updated console", "cpus": 1, "memory_mb": 512, "network": False, "gpu_ids": []}
             viewer.call(f"/workspaces/{wid}", properties, "PUT", expected=403)
@@ -209,12 +226,25 @@ def main():
                 assert not info["State"]["Running"]
                 assert action(wid, "start")["status"] == "done"
                 assert action(wid, "exec", "cat /home/lab/probe")["output"] == "persistent-data"
+                if network:
+                    package_operation(wid, "install", "pyfiglet", package_version)
+                else:
+                    assert "pyfiglet" in action(wid, "exec", "python -c 'import pyfiglet; print(pyfiglet.__name__)'")["output"]
+                    package_operation(wid, "remove", "pyfiglet")
+                    assert not any(p["name"] == "pyfiglet" for p in json.loads(package_operation(wid, "list"))["packages"])
+            print("PASS uv install, import after container rebuild, and uninstall without internet", flush=True)
             print("PASS workspace rename, edit authorization, stopped resource updates, Docker limits, network changes, and preserved files", flush=True)
 
             if os.environ.get("CLOUDLAB_TEST_APPS") == "1":
                 for template in ["jupyter", "code"]:
-                    app = operator.call("/workspaces", dict(config, name=f"Test {template}", template=template, memory_mb=1024))["id"]
+                    app = operator.call("/workspaces", dict(config, name=f"Test {template}", template=template, memory_mb=1024, network=True))["id"]
                     wait_for(lambda: workspace_status(app, "running"))
+                    package_operation(app, "install", "pyfiglet", package_version)
+                    imported = action(app, "exec", "python -c 'import sys, pyfiglet; print(sys.prefix)'")
+                    assert "/home/lab/.venv" in imported["output"], imported
+                    kernel = action(app, "exec", "cat /home/lab/.local/share/jupyter/kernels/python3/kernel.json")
+                    assert json.loads(kernel["output"])["argv"][0] == "/home/lab/.venv/bin/python"
+                    package_operation(app, "remove", "pyfiglet")
                     launch = operator.call(f"/workspaces/{app}/open", {})["url"]
                     parsed = urllib.parse.urlsplit(launch)
                     status, headers, _ = gateway(launch, path=f"/?{parsed.query}")

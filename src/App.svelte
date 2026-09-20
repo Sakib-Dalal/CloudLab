@@ -42,9 +42,12 @@
     SlidersHorizontal,
     ExternalLink,
     Laptop,
+    Package,
   } from "lucide-svelte";
   import { api, APIError } from "./lib/api";
   import AnalyticsDashboard from "./lib/AnalyticsDashboard.svelte";
+  import PackageManager from "./lib/PackageManager.svelte";
+  import GpuAccess from "./lib/GpuAccess.svelte";
   import WorkspaceMetrics from "./lib/WorkspaceMetrics.svelte";
   import { fresh } from "./lib/metrics";
   import TerminalWorkspace from "./lib/TerminalWorkspace.svelte";
@@ -265,9 +268,13 @@
           data.workspaces.find((w) => w.id === activeWorkspace?.id) || null;
         if (
           !activeWorkspace &&
-          ["console", "workspace-detail", "workspace-edit", "delete"].includes(
-            modal,
-          )
+          [
+            "console",
+            "workspace-detail",
+            "workspace-edit",
+            "packages",
+            "delete",
+          ].includes(modal)
         ) {
           modal = "";
           notify("This workspace is no longer available.");
@@ -285,6 +292,9 @@
     }
   }
   onMount(() => {
+    const desktopError = (event: Event) =>
+      notify((event as CustomEvent<string>).detail);
+    window.addEventListener("cloudlab-desktop-error", desktopError);
     const bootstrap = new URLSearchParams(location.hash.slice(1)).get(
       "desktop",
     );
@@ -304,7 +314,10 @@
       }
       if (data && !demo) refresh();
     }, 5000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("cloudlab-desktop-error", desktopError);
+    };
   });
   async function login() {
     busy = true;
@@ -500,11 +513,17 @@
       notify("Preview only. Connect a real node to open this workspace.");
       return;
     }
-    const tab = window.open("about:blank", "_blank");
+    const tab = window.__CLOUDLAB_DESKTOP__
+      ? null
+      : window.open("about:blank", "_blank");
     if (tab) tab.opener = null;
     try {
       const result = await api(`/workspaces/${w.id}/open`, {});
-      if (tab) tab.location.replace(result.url);
+      if (window.__CLOUDLAB_DESKTOP__)
+        location.assign(
+          `/_cloudlab/desktop-open?url=${encodeURIComponent(result.url)}`,
+        );
+      else if (tab) tab.location.replace(result.url);
       else location.assign(result.url);
     } catch (e) {
       tab?.close();
@@ -1475,6 +1494,7 @@
       class="modal"
       class:console-modal={modal === "console"}
       class:remote-modal={modal === "remote"}
+      class:package-modal={modal === "packages"}
       bind:this={dialogElement}
       role="dialog"
       aria-modal="true"
@@ -1810,6 +1830,7 @@
             >{activeWorkspace.network ? "Outbound allowed" : "Isolated"}</strong
           ><span>Storage</span><strong>Persistent Docker volume</strong>
         </div>
+        <GpuAccess workspace={activeWorkspace} node={activeWorkspaceNode} />
         <WorkspaceMetrics
           workspace={activeWorkspace}
           node={nodes.find((n) => n.id === activeWorkspace?.node_id)}
@@ -1854,6 +1875,20 @@
               onclick={() => open("workspace-edit", activeWorkspace!)}
               ><Settings2 size={17} />Edit workspace</button
             >
+            <button
+              class="secondary"
+              disabled={busy || activeWorkspaceRevoked}
+              onclick={() => (modal = "packages")}
+              ><Package size={17} />Python packages</button
+            >
+            {#if ["stopped", "error"].includes(activeWorkspace.status)}<button
+                class="secondary"
+                disabled={busy ||
+                  !activeWorkspaceOnline ||
+                  activeWorkspaceRevoked}
+                onclick={() => action(activeWorkspace!, "rebuild")}
+                ><RefreshCw size={16} />Update environment</button
+              >{/if}
             {#if activeWorkspace.status === "running"}<button
                 class="primary"
                 onclick={() => openApp(activeWorkspace!)}
@@ -1892,6 +1927,14 @@
                   : "Remove container"}</button
             >
           </div>{/if}
+      {:else if modal === "packages" && activeWorkspace}
+        {#key activeWorkspace.id}<PackageManager
+            workspace={activeWorkspace}
+            connected={activeWorkspaceOnline}
+            {demo}
+            onsettings={() => open("workspace-edit", activeWorkspace!)}
+            onback={() => (modal = "workspace-detail")}
+          />{/key}
       {:else if modal === "delete" && activeWorkspace}<h2>
           {activeWorkspaceRevoked
             ? "Remove this workspace record?"

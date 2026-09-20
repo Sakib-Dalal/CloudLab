@@ -31,8 +31,15 @@ Opened consoles, JupyterLab and VS Code show CPU/RAM/status metrics and expandab
 
 Install the hardware's driver and configure Docker first. NVIDIA requires a configured GPU runtime; AMD/Intel require accessible render devices. Remote Docker contexts are excluded from GPU allocation, because local hardware identifiers cannot safely describe a remote engine. The node must run beside the Docker engine (or in supported WSL2).
 
-Choose a compatible node in **New workspace**, then select one or more available GPUs. Selection is optional and off by default. GPUs are reserved until that workspace is removed, including while it is stopped. Existing workspaces retain their original device allocation; create a new workspace to change it. Reservations do not prevent host applications from using the same GPU and do not enforce a GPU memory quota.
+Choose a compatible node in **New workspace**, then select one or more available GPUs. Selection is optional and off by default. GPUs are reserved until they are unassigned or the workspace is removed, including while it is stopped. For an existing workspace, stop it and choose **Manage → Edit workspace** to change its GPU allocation. Reservations do not prevent host applications from using the same GPU and do not enforce a GPU memory quota.
 
 Workspace images still need compatible CUDA, ROCm, oneAPI, or graphics libraries for the intended application. The fixed CloudLab images are general-purpose and do not automatically install ML frameworks or GPU runtimes. Device access alone does not turn an existing Python package into a GPU-enabled build. CloudLab does not install drivers or change host security settings automatically.
 
 References: [Docker GPU access](https://docs.docker.com/engine/containers/gpu/), [Docker Desktop GPU support](https://docs.docker.com/desktop/features/gpu/), [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), [AMD GPU sysfs sensors](https://docs.kernel.org/gpu/amdgpu/thermal.html).
+
+
+## GPU not available in a notebook or editor
+
+The GPU note in workspace controls, the console, and browser workspace windows distinguishes detected hardware from assigned compute access. An Apple M-series GPU is **monitoring only** with the Docker backend; installing PyTorch, CUDA, or a VS Code extension cannot expose Metal to a Linux container. Use a supported Linux/WSL2 GPU node for these workspaces. Native macOS GPU execution would require a separate native backend.
+
+For supported nodes, stop the workspace, assign the GPU in Edit workspace, resume, and install a compatible framework through **Python packages**. The uv environment is `/home/lab/.venv`; Jupyter’s CloudLab kernel uses it automatically, and VS Code’s Python extension should select that interpreter. GPU utilization charts alone do not mean a workspace has GPU access.

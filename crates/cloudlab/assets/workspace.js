@@ -72,6 +72,7 @@ function renderInfo(info) {
   $("network").textContent = info.network
     ? "Internet enabled"
     : "Isolated network";
+  $("gpu-access-note").textContent = info.gpu_note || "";
   $("footer-app").textContent = `${app} on your compute node`;
   frame.title = `${app} · ${info.name} · CloudLab`;
   appPath = info.path;

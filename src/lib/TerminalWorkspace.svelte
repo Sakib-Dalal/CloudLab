@@ -15,6 +15,7 @@
     ShieldCheck,
   } from "lucide-svelte";
   import { api } from "./api";
+  import GpuAccess from "./GpuAccess.svelte";
   import WorkspaceMetrics from "./WorkspaceMetrics.svelte";
   import type { Workspace, Node } from "./types";
 
@@ -214,6 +215,7 @@
     </div>
   </div>
   <WorkspaceMetrics {workspace} {node} {clock} {connected} />
+  <GpuAccess {workspace} {node} />
   <div class="terminal-body">
     <div class="terminal-toolbar">
       <span

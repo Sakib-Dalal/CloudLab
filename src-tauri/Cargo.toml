@@ -11,3 +11,4 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 cloudlab = { path = "../crates/cloudlab" }
 tokio = { version = "1", features = ["full"] }
+serde_json = "1"

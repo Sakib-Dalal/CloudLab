@@ -520,6 +520,7 @@ name = "cloudlab-desktop"
 version = "2.0.0"
 dependencies = [
  "cloudlab",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tokio",

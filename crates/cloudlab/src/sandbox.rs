@@ -479,6 +479,43 @@ async fn execute_inner(
     }
     inspect(&w.id, node).await?;
     match action {
+        "packages" => {
+            let request: crate::packages::PackageRequest = serde_json::from_str(command)?;
+            request.validate().map_err(|e| anyhow::anyhow!(e.1))?;
+            anyhow::ensure!(
+                request.action != "install" || w.network,
+                "Enable workspace internet access before installing packages."
+            );
+            let available = docker(
+                &strings(&[
+                    "exec",
+                    "--user",
+                    "1000:1000",
+                    &name,
+                    "test",
+                    "-x",
+                    "/usr/local/bin/cloudlab-packages",
+                ]),
+                10,
+            )
+            .await;
+            anyhow::ensure!(available.is_ok(), "This workspace needs the updated uv environment. Stop it, build the current images on its node, then choose Update environment.");
+            docker(
+                &strings(&[
+                    "exec",
+                    "--user",
+                    "1000:1000",
+                    "--workdir",
+                    "/home/lab",
+                    &name,
+                    "/home/lab/.venv/bin/python",
+                    "/usr/local/bin/cloudlab-packages",
+                    command,
+                ]),
+                660,
+            )
+            .await
+        }
         "start" => docker(&strings(&["start", &name]), 60).await,
         "stop" => docker(&strings(&["stop", "--time", "15", &name]), 40).await,
         "delete" => {

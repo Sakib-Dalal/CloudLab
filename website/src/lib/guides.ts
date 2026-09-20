@@ -695,6 +695,15 @@ export const guides: Guide[] = [
         ],
       },
       {
+        id: "packages",
+        title: "Manage Python packages with uv",
+        blocks: [
+          text("Choose Manage (⋯) → Python packages to look up a PyPI package by its exact name, browse installed versions, install or update it, and remove packages you installed. Partial-name suggestions cover popular packages. Search uses the coordinator’s internet connection; installs run inside the workspace and need outbound internet access."),
+          text("All three workspace images provide uv and Python. Packages persist in /home/lab/.venv. Jupyter’s Python (CloudLab · uv) kernel and workspace terminals use this environment; select the same interpreter in VS Code’s Python extension. Restart active notebook kernels after package changes. Packages built into the read-only image cannot be removed from the panel."),
+          note("Upgrade an existing workspace", "Rebuild the images on its compute node, update the coordinator and agent, then stop the workspace and choose Update environment. Resume it when the update finishes. Its saved files and packages remain in the home volume."),
+        ],
+      },
+      {
         id: "files",
         title: "Keep files in your project volume",
         blocks: [

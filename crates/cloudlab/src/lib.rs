@@ -6,3 +6,5 @@ pub mod sandbox;
 pub mod server;
 pub mod telemetry;
 mod workspace_ui;
+
+mod packages;

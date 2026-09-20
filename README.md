@@ -99,6 +99,8 @@ Tauri starts an embedded local coordinator and workspace gateway on loopback por
 CLOUDLAB_DESKTOP_URL=https://lab.example.com npm run desktop
 ```
 
+JupyterLab and VS Code open in separate native windows at their own workspace origins. The packaged macOS app permits local HTTP connections to `localhost` and its workspace subdomains; remote workspaces still require HTTPS. Rebuild and replace an older desktop app to receive this fix—updating only the coordinator does not update the native shell.
+
 You can also choose **Connect to another coordinator** on the sign-in screen. Native builds need the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/). There are no shell, filesystem, or process IPC permissions granted to workspace webviews. Platform installers are unsigned until you configure your own signing/notarization credentials.
 
 ### Coordinator in Docker
@@ -134,6 +136,18 @@ The coordinator has no Docker socket. Compute agents run separately on their dev
 **Compute nodes** and **Workspaces** include Grafana-style visual dashboards: CPU and memory trends, network throughput, container disk I/O, status summaries, node reservations, GPU utilization, and available GPU memory/temperature/power sensors. Filter by node or workspace, select the last 5 minutes, 15 minutes, or hour, pause the display, inspect points with the time slider, and toggle GPU charts. Open consoles, JupyterLab, and VS Code also show live usage with expandable charts.
 
 Agents sample in the background; the coordinator holds up to one hour of history in memory, resetting on restart. Missing or stale readings are shown as unavailable. New workspace creation offers detected GPUs that support container access: NVIDIA on Linux/WSL2 with a configured GPU runtime, and AMD/Intel render devices on a local Linux Docker engine. Apple and other Mac GPUs are detected for monitoring; ordinary Docker Desktop Linux containers cannot use Metal GPUs. Driver and image requirements, sensor limitations, and reservation behavior are described in [analytics and GPU support](docs/analytics.md).
+
+## Python packages and internet access
+
+Open **Manage (⋯) → Python packages** to look up a PyPI package by name, see installed versions, install/update a selected version, or remove workspace-installed packages. Search supports exact names across PyPI and partial matches for popular packages. The catalog is fetched by the coordinator; installation runs on the compute node inside the workspace through **uv**. There is no host package installation.
+
+All three images include Python, uv, and a persistent environment at `/home/lab/.venv`. Jupyter’s **Python (CloudLab · uv)** kernel and workspace terminals use this environment. In VS Code, select `/home/lab/.venv/bin/python` as the interpreter if you use the Python extension. Restart existing notebook kernels after changing packages. Packages included in the read-only image cannot be removed through the panel; workspace-installed packages can.
+
+Use **Edit workspace → Allow outbound network access** to turn internet access on or off. Stop the workspace first, save, then resume. Enabling it requires **Lab settings → Allow workspace internet access** and an agent started with `--allow-network`. Disabling it returns the workspace to an isolated network. Listing and removing installed packages work without internet; downloading packages requires it. Saved files and the uv environment survive these changes.
+
+For existing installations, rebuild the images on each node with `./scripts/build-images.sh`, update/restart the coordinator and agents, stop the workspace, and choose **Update environment**, then resume it. This replaces the container using the current image while retaining its home volume.
+
+On macOS, an Apple GPU can appear in node monitoring but is unavailable inside Docker Desktop Linux workspaces. Use a supported Linux/WSL2 GPU node for GPU-backed containers. A native Metal backend is not included. A GPU must be assigned in workspace settings, and the installed Python framework must support that GPU.
 
 ## Isolation and remote connectivity
 
